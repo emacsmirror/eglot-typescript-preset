@@ -747,6 +747,46 @@
   (should-not (eglot-typescript-preset--path-in-directory-p "/a" nil)))
 
 
+;;; --- Safe local variable tests ---
+
+(ert-deftest ts-preset--lsp-server-safe-local-variable ()
+  (should (eglot-typescript-preset--lsp-server-safe-p
+           'typescript-language-server))
+  (should (eglot-typescript-preset--lsp-server-safe-p 'rass))
+  (should-not (eglot-typescript-preset--lsp-server-safe-p 'unknown))
+  (should-not (eglot-typescript-preset--lsp-server-safe-p "rass"))
+  (should-not (eglot-typescript-preset--lsp-server-safe-p nil)))
+
+(ert-deftest ts-preset--astro-lsp-server-safe-local-variable ()
+  (should (eglot-typescript-preset--astro-lsp-server-safe-p 'astro-ls))
+  (should (eglot-typescript-preset--astro-lsp-server-safe-p 'rass))
+  (should (eglot-typescript-preset--astro-lsp-server-safe-p nil))
+  (should-not (eglot-typescript-preset--astro-lsp-server-safe-p 'unknown))
+  (should-not (eglot-typescript-preset--astro-lsp-server-safe-p "astro-ls")))
+
+(ert-deftest ts-preset--rass-tools-safe-local-variable ()
+  (should (eglot-typescript-preset--rass-tools-safe-p
+           '(typescript-language-server eslint)))
+  (should (eglot-typescript-preset--rass-tools-safe-p
+           '(typescript-language-server biome oxlint oxfmt)))
+  (should (eglot-typescript-preset--rass-tools-safe-p
+           '(astro-ls eslint)))
+  (should (eglot-typescript-preset--rass-tools-safe-p '()))
+  (should-not (eglot-typescript-preset--rass-tools-safe-p
+               '(typescript-language-server ["biome" "lsp-proxy"])))
+  (should-not (eglot-typescript-preset--rass-tools-safe-p '(unknown)))
+  (should-not (eglot-typescript-preset--rass-tools-safe-p "eslint")))
+
+(ert-deftest ts-preset--project-markers-safe-local-variable ()
+  (should (eglot-typescript-preset--project-markers-safe-p
+           '("package.json" "tsconfig.json")))
+  (should (eglot-typescript-preset--project-markers-safe-p '()))
+  (should-not (eglot-typescript-preset--project-markers-safe-p
+               '(package.json)))
+  (should-not (eglot-typescript-preset--project-markers-safe-p
+               "package.json")))
+
+
 ;;; --- Live tests (opt-in) ---
 
 (when (or my-test-run-live-tests

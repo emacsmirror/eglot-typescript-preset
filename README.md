@@ -196,6 +196,54 @@ contextual presets are pruned automatically:
 (setopt eglot-typescript-preset-rass-max-contextual-presets 50) ; default
 ```
 
+### Per-project Configuration
+
+Some projects may need different settings than your global defaults. There are
+two approaches, depending on whether you want the settings stored in the project
+itself.
+
+#### Using `.dir-locals.el` (project-local file)
+
+Create a `.dir-locals.el` file in the project root. The following variables are
+recognized as safe with appropriate values, so Emacs will apply them without
+prompting:
+
+```elisp
+;;; .dir-locals.el
+((typescript-ts-mode
+  . ((eglot-typescript-preset-lsp-server . rass)
+     (eglot-typescript-preset-rass-tools . (typescript-language-server biome)))))
+```
+
+`eglot-typescript-preset-lsp-server` accepts `typescript-language-server` or
+`rass`. `eglot-typescript-preset-astro-lsp-server` accepts `astro-ls`, `rass`,
+or `nil`. `eglot-typescript-preset-rass-tools` and
+`eglot-typescript-preset-astro-rass-tools` accept lists of known tool symbols
+(`typescript-language-server`, `astro-ls`, `biome`, `eslint`, `oxlint`,
+`oxfmt`). `eglot-typescript-preset-js-project-markers` accepts lists of filename
+strings.
+
+#### Using `dir-locals-set-directory-class` (init file, no project changes)
+
+If you prefer not to add Emacs-specific files to the project, configure
+per-directory settings from your init file instead:
+
+```elisp
+(dir-locals-set-class-variables
+ 'my-project-x
+ '((typescript-ts-mode
+    . ((eglot-typescript-preset-lsp-server . rass)
+       (eglot-typescript-preset-rass-tools
+        . (typescript-language-server biome))))))
+
+(dir-locals-set-directory-class
+ (expand-file-name "~/devel/project-x") 'my-project-x)
+```
+
+This uses the built-in Emacs directory-class mechanism. The settings take effect
+whenever you visit files under that directory, without any files added to the
+project.
+
 ## Troubleshooting
 
 - Eglot publishes diagnostics through Flymake. If you are using Flycheck, you

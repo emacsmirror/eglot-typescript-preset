@@ -202,6 +202,45 @@ attempts to find it automatically via `npm root -g'."
   :type '(repeat symbol)
   :group 'eglot-typescript-preset)
 
+(defun eglot-typescript-preset--lsp-server-safe-p (value)
+  "Return non-nil if VALUE is a safe `eglot-typescript-preset-lsp-server' value."
+  (memq value '(typescript-language-server rass)))
+
+(put 'eglot-typescript-preset-lsp-server 'safe-local-variable
+     #'eglot-typescript-preset--lsp-server-safe-p)
+
+(defun eglot-typescript-preset--astro-lsp-server-safe-p (value)
+  "Return non-nil if VALUE is a safe `eglot-typescript-preset-astro-lsp-server'."
+  (memq value '(astro-ls rass nil)))
+
+(put 'eglot-typescript-preset-astro-lsp-server 'safe-local-variable
+     #'eglot-typescript-preset--astro-lsp-server-safe-p)
+
+(defun eglot-typescript-preset--rass-tools-safe-p (value)
+  "Return non-nil if VALUE is a safe `eglot-typescript-preset-rass-tools' value.
+Only lists of known symbols are considered safe.  Literal command vectors
+are excluded because they could execute arbitrary programs."
+  (and (listp value)
+       (seq-every-p (lambda (item)
+                      (memq item '(astro-ls biome eslint oxfmt oxlint
+                                   typescript-language-server)))
+                    value)))
+
+(put 'eglot-typescript-preset-rass-tools 'safe-local-variable
+     #'eglot-typescript-preset--rass-tools-safe-p)
+
+(put 'eglot-typescript-preset-astro-rass-tools 'safe-local-variable
+     #'eglot-typescript-preset--rass-tools-safe-p)
+
+(defun eglot-typescript-preset--project-markers-safe-p (value)
+  "Return non-nil if VALUE is safe for project markers.
+Checks `eglot-typescript-preset-js-project-markers'."
+  (and (listp value)
+       (seq-every-p #'stringp value)))
+
+(put 'eglot-typescript-preset-js-project-markers 'safe-local-variable
+     #'eglot-typescript-preset--project-markers-safe-p)
+
 (defun eglot-typescript-preset--find-tsdk ()
   "Find the TypeScript SDK `lib' directory.
 
