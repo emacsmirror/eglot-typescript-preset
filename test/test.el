@@ -21,6 +21,14 @@
 
 (defvar my-test-run-live-tests nil)
 (defvar my-test-test-dir (file-name-directory load-file-name))
+(defvar my-test-fixtures-dir
+  (expand-file-name "fixtures/" my-test-test-dir))
+(defvar my-test-project-dir
+  (expand-file-name ".." my-test-test-dir))
+(defvar my-test-local-bin-dir
+  (expand-file-name "node_modules/.bin/" my-test-project-dir))
+(defvar my-test-local-tsdk
+  (expand-file-name "node_modules/typescript/lib/" my-test-project-dir))
 (defvar my-test-argv-lsp-server
   (expand-file-name "argv-lsp-server.py" my-test-test-dir))
 (defvar my-test-live-rass-client
@@ -43,6 +51,20 @@
       (insert " " (shell-quote-argument arg)))
     (insert " \"$@\"\n"))
   (set-file-modes path #o755))
+
+(defun my-test-fixture-content (name)
+  "Return the contents of fixture file NAME."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name name my-test-fixtures-dir))
+    (buffer-string)))
+
+(defun my-test-copy-fixture (name target-dir &optional target-name)
+  "Copy fixture NAME into TARGET-DIR.  Return the new path.
+If TARGET-NAME is non-nil, rename the file."
+  (let ((src (expand-file-name name my-test-fixtures-dir))
+        (dst (expand-file-name (or target-name name) target-dir)))
+    (copy-file src dst t)
+    dst))
 
 (defun my-test--with-tmp-dir (fn)
   "Call FN with a temporary directory, cleaned up afterward."
@@ -668,6 +690,43 @@
             (should (not (equal .initOptions :null)))
             (should (equal .eslintLogic :false))))))))
 
+(ert-deftest ts-preset--template-unit-ts-eslint-oxlint ()
+  "Validate template with typescript-language-server + eslint + oxlint."
+  (skip-unless (executable-find "python3"))
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((tools '(typescript-language-server eslint oxlint))
+             (path (eglot-typescript-preset--rass-preset-path tools nil)))
+        (should path)
+        (let* ((output (shell-command-to-string
+                        (format "python3 %s %s"
+                                (shell-quote-argument my-test-rass-template-unit)
+                                (shell-quote-argument path))))
+               (result (json-parse-string output :object-type 'alist)))
+          (let-alist result
+            (should (equal .initOptions :null))
+            (should (not (equal .eslintLogic :false)))
+            (should (= (length .servers) 3))))))))
+
+(ert-deftest ts-preset--template-unit-astro-eslint-oxlint ()
+  "Validate template with astro-ls + eslint + oxlint."
+  (skip-unless (executable-find "python3"))
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((eglot-typescript-preset-tsdk "/fake/lib")
+             (tools '(astro-ls eslint oxlint))
+             (path (eglot-typescript-preset--rass-preset-path tools nil)))
+        (should path)
+        (let* ((output (shell-command-to-string
+                        (format "python3 %s %s"
+                                (shell-quote-argument my-test-rass-template-unit)
+                                (shell-quote-argument path))))
+               (result (json-parse-string output :object-type 'alist)))
+          (let-alist result
+            (should (not (equal .initOptions :null)))
+            (should (not (equal .eslintLogic :false)))
+            (should (= (length .servers) 3))))))))
+
 
 ;;; --- Server contact tests ---
 
@@ -937,53 +996,223 @@
 (when (or my-test-run-live-tests
           (getenv "MY_TEST_RUN_LIVE_TESTS"))
 
+  (defun my-test--live-local-bins-available-p ()
+    "Return non-nil if local node_modules/.bin exists."
+    (file-directory-p my-test-local-bin-dir))
+
+  (defun my-test--run-rass-with-diagnostics
+      (preset-path test-file language-id root-dir &optional timeout)
+    "Run rass-live-client and return parsed result as alist.
+PRESET-PATH is the rass preset.  TEST-FILE is the file to open.
+LANGUAGE-ID is the LSP language identifier.  ROOT-DIR is the
+workspace root.  TIMEOUT defaults to 20 seconds."
+    (let* ((timeout (or timeout 20))
+           (output (shell-command-to-string
+                    (format "python3 %s %s %s --language-id %s --root %s --timeout %s"
+                            (shell-quote-argument my-test-live-rass-client)
+                            (shell-quote-argument preset-path)
+                            (shell-quote-argument test-file)
+                            (shell-quote-argument language-id)
+                            (shell-quote-argument root-dir)
+                            timeout))))
+      (json-parse-string output :object-type 'alist)))
+
   (ert-deftest ts-preset--live-rass-tslint ()
     "Live: rass with tslint preset."
-    (skip-unless (executable-find "rass"))
-    (skip-unless (executable-find "typescript-language-server"))
-    (skip-unless (executable-find "vscode-eslint-language-server"))
-    (my-test-with-tmp-dir tmp-dir
-      (my-test-with-project-env tmp-dir
-        (let* ((eglot-typescript-preset-rass-tools
-                '(typescript-language-server eslint))
-               (path (eglot-typescript-preset--rass-preset-path
-                      eglot-typescript-preset-rass-tools nil))
-               (test-file (expand-file-name "test.ts" tmp-dir)))
-          (with-temp-file test-file
-            (insert "const x: number = 1;\n"))
-          (with-temp-file (expand-file-name "package.json" tmp-dir)
-            (insert "{}"))
-          (let* ((output (shell-command-to-string
-                          (format "python3 %s %s %s --language-id typescript"
-                                  (shell-quote-argument my-test-live-rass-client)
-                                  (shell-quote-argument path)
-                                  (shell-quote-argument test-file))))
-                 (result (json-parse-string output :object-type 'alist)))
-            (let-alist result
-              (should .initialized)))))))
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "typescript-language-server"))
+      (skip-unless (executable-find "vscode-eslint-language-server"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(typescript-language-server eslint))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture "valid.ts" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let* ((output (shell-command-to-string
+                            (format "python3 %s %s %s --language-id typescript"
+                                    (shell-quote-argument
+                                     my-test-live-rass-client)
+                                    (shell-quote-argument path)
+                                    (shell-quote-argument test-file))))
+                   (result (json-parse-string output :object-type 'alist)))
+              (let-alist result
+                (should .initialized))))))))
 
   (ert-deftest ts-preset--live-rass-tsbiome ()
     "Live: rass with typescript + biome."
-    (skip-unless (executable-find "rass"))
-    (skip-unless (executable-find "typescript-language-server"))
-    (skip-unless (executable-find "biome"))
-    (my-test-with-tmp-dir tmp-dir
-      (my-test-with-project-env tmp-dir
-        (let* ((eglot-typescript-preset-rass-tools
-                '(typescript-language-server biome))
-               (path (eglot-typescript-preset--rass-preset-path
-                      eglot-typescript-preset-rass-tools nil))
-               (test-file (expand-file-name "test.ts" tmp-dir)))
-          (with-temp-file test-file
-            (insert "const x: number = 1;\n"))
-          (let* ((output (shell-command-to-string
-                          (format "python3 %s %s %s --language-id typescript"
-                                  (shell-quote-argument my-test-live-rass-client)
-                                  (shell-quote-argument path)
-                                  (shell-quote-argument test-file))))
-                 (result (json-parse-string output :object-type 'alist)))
-            (let-alist result
-              (should .initialized))))))))
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "typescript-language-server"))
+      (skip-unless (executable-find "biome"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(typescript-language-server biome))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture "valid.ts" tmp-dir)))
+            (let* ((output (shell-command-to-string
+                            (format "python3 %s %s %s --language-id typescript"
+                                    (shell-quote-argument
+                                     my-test-live-rass-client)
+                                    (shell-quote-argument path)
+                                    (shell-quote-argument test-file))))
+                   (result (json-parse-string output :object-type 'alist)))
+              (let-alist result
+                (should .initialized))))))))
+
+  (ert-deftest ts-preset--live-rass-ts-eslint-oxlint ()
+    "Live: rass with typescript-language-server + eslint + oxlint."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "typescript-language-server"))
+      (skip-unless (executable-find "vscode-eslint-language-server"))
+      (skip-unless (executable-find "oxlint"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(typescript-language-server eslint oxlint))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture "valid.ts" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let* ((output (shell-command-to-string
+                            (format "python3 %s %s %s --language-id typescript"
+                                    (shell-quote-argument
+                                     my-test-live-rass-client)
+                                    (shell-quote-argument path)
+                                    (shell-quote-argument test-file))))
+                   (result (json-parse-string output :object-type 'alist)))
+              (let-alist result
+                (should .initialized))))))))
+
+  (ert-deftest ts-preset--live-rass-astro-eslint-oxlint ()
+    "Live: rass with astro-ls + eslint + oxlint."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "astro-ls"))
+      (skip-unless (executable-find "vscode-eslint-language-server"))
+      (skip-unless (executable-find "oxlint"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+                 (tools '(astro-ls eslint oxlint))
+                 (path (eglot-typescript-preset--rass-preset-path tools nil))
+                 (test-file (my-test-copy-fixture "valid.astro" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let* ((output (shell-command-to-string
+                            (format "python3 %s %s %s --language-id astro"
+                                    (shell-quote-argument
+                                     my-test-live-rass-client)
+                                    (shell-quote-argument path)
+                                    (shell-quote-argument test-file))))
+                   (result (json-parse-string output :object-type 'alist)))
+              (let-alist result
+                (should .initialized))))))))
+
+  ;; --- Diagnostic verification tests ---
+
+  (ert-deftest ts-preset--live-diag-ts-oxlint-debugger ()
+    "Live diagnostic: oxlint flags debugger statement in TS file."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "typescript-language-server"))
+      (skip-unless (executable-find "oxlint"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(typescript-language-server oxlint))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture
+                             "debugger.ts" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "typescript" tmp-dir)
+              (should .initialized)
+              (should (member "oxc" (append .diagnosticSources nil)))
+              (should (cl-some (lambda (code)
+                                 (string-match-p "no-debugger" code))
+                               (append .diagnosticCodes nil)))))))))
+
+  (ert-deftest ts-preset--live-diag-ts-type-error ()
+    "Live diagnostic: typescript-language-server flags type mismatch."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "typescript-language-server"))
+      (skip-unless (executable-find "oxlint"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(typescript-language-server oxlint))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture
+                             "type-error.ts" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "typescript" tmp-dir)
+              (should .initialized)
+              (should (member "typescript" (append .diagnosticSources nil)))
+              (should (member "2322"
+                              (append .diagnosticCodes nil)))))))))
+
+  (ert-deftest ts-preset--live-diag-astro-oxlint-debugger ()
+    "Live diagnostic: oxlint flags debugger in Astro frontmatter."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "astro-ls"))
+      (skip-unless (executable-find "oxlint"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+                 (tools '(astro-ls oxlint))
+                 (path (eglot-typescript-preset--rass-preset-path tools nil))
+                 (test-file (my-test-copy-fixture
+                             "debugger.astro" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "astro" tmp-dir 30)
+              (should .initialized)
+              (should (member "oxc" (append .diagnosticSources nil)))
+              (should (cl-some (lambda (code)
+                                 (string-match-p "no-debugger" code))
+                               (append .diagnosticCodes nil)))))))))
+
+  (ert-deftest ts-preset--live-diag-astro-type-error ()
+    "Live diagnostic: astro-ls flags type mismatch in frontmatter."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "astro-ls"))
+      (skip-unless (executable-find "oxlint"))
+      (skip-unless (executable-find "vscode-eslint-language-server"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+                 (tools '(astro-ls eslint oxlint))
+                 (path (eglot-typescript-preset--rass-preset-path tools nil))
+                 (test-file (my-test-copy-fixture
+                             "type-error.astro" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "astro" tmp-dir 30)
+              (should .initialized)
+              (should (member "ts" (append .diagnosticSources nil)))
+              (should (member "2322"
+                              (append .diagnosticCodes nil)))))))))
+
+  ) ;; end of (when ... live tests)
 
 (provide 'test)
 ;;; test.el ends here

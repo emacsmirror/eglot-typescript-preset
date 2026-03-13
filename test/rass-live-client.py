@@ -74,12 +74,14 @@ def main():
     parser.add_argument("file")
     parser.add_argument("--server", default="rass")
     parser.add_argument("--language-id", default="typescript")
+    parser.add_argument("--root", default=None)
     parser.add_argument("--timeout", type=float, default=8.0)
+    parser.add_argument("--stderr", action="store_true")
     args = parser.parse_args()
 
     file_path = Path(args.file).resolve()
     uri = file_path.as_uri()
-    root_path = file_path.parent
+    root_path = Path(args.root).resolve() if args.root else file_path.parent
 
     proc = subprocess.Popen(
         [args.server, args.preset],
@@ -188,17 +190,20 @@ def main():
                         diagnostic_codes.append(str(code))
                 continue
 
-        next_id = request(proc, next_id, "shutdown", None)
-        end_deadline = time.monotonic() + 2.0
-        while time.monotonic() < end_deadline:
-            message = wait_for_message(
-                message_queue, max(0.0, end_deadline - time.monotonic())
-            )
-            if message is None:
-                continue
-            if message.get("id") == next_id - 1:
-                break
-        send(proc, {"jsonrpc": "2.0", "method": "exit", "params": {}})
+        try:
+            next_id = request(proc, next_id, "shutdown", None)
+            end_deadline = time.monotonic() + 2.0
+            while time.monotonic() < end_deadline:
+                message = wait_for_message(
+                    message_queue, max(0.0, end_deadline - time.monotonic())
+                )
+                if message is None:
+                    continue
+                if message.get("id") == next_id - 1:
+                    break
+            send(proc, {"jsonrpc": "2.0", "method": "exit", "params": {}})
+        except BrokenPipeError:
+            pass
     finally:
         try:
             proc.terminate()
@@ -210,16 +215,21 @@ def main():
             proc.kill()
         reader_thread.join(timeout=1.0)
 
-    print(
-        json.dumps(
-            {
-                "initialized": initialized,
-                "workspaceConfigSections": workspace_sections,
-                "diagnosticSources": diagnostic_sources,
-                "diagnosticCodes": diagnostic_codes,
-            }
-        )
-    )
+    result = {
+        "initialized": initialized,
+        "workspaceConfigSections": workspace_sections,
+        "diagnosticSources": diagnostic_sources,
+        "diagnosticCodes": diagnostic_codes,
+    }
+
+    if args.stderr:
+        try:
+            stderr_output = proc.stderr.read().decode("utf-8", errors="replace")
+            result["stderr"] = stderr_output[:4000] if stderr_output else ""
+        except Exception:
+            result["stderr"] = ""
+
+    print(json.dumps(result))
 
 
 if __name__ == "__main__":
