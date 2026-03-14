@@ -10,6 +10,7 @@
 (require 'wid-edit)
 (require 'eglot-typescript-preset)
 
+(defvar eglot-lsp-context nil)
 (defvar eglot-server-programs nil)
 (defvar eglot-workspace-configuration nil)
 (defvar project-find-functions nil)

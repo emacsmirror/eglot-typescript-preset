@@ -174,7 +174,6 @@ older ones are deleted.  Shared presets are not affected."
        (> (length value) 0)
        (seq-every-p #'stringp value)))
 
-;;;###autoload
 (defvar eglot-typescript-preset--rass-tools-type
   '(repeat
     (choice
@@ -715,7 +714,7 @@ Returns the preset path, or nil when RASS-COMMAND is set."
               (file-exists-p (expand-file-name file dir)))
             eglot-typescript-preset-js-project-markers))
 
-(defvar eglot-lsp-context nil)
+(defvar eglot-lsp-context)
 
 (defun eglot-typescript-preset--project-find (dir)
   "Project detection for JavaScript and TypeScript files.
