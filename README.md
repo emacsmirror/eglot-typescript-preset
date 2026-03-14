@@ -291,16 +291,20 @@ prompting:
      (eglot-typescript-preset-rass-tools . (typescript-language-server biome)))))
 ```
 
-`eglot-typescript-preset-lsp-server` accepts `typescript-language-server`,
-`deno`, or `rass`. `eglot-typescript-preset-astro-lsp-server` accepts
-`astro-ls`, `rass`, or `nil`. `eglot-typescript-preset-vue-lsp-server` accepts
-`vue-language-server`, `rass`, or `nil`. `eglot-typescript-preset-rass-tools`,
-`eglot-typescript-preset-astro-rass-tools`, and
-`eglot-typescript-preset-vue-rass-tools` accept lists of known tool symbols
-(`typescript-language-server`, `vue-language-server`,
-`tailwindcss-language-server`, `astro-ls`, `biome`, `eslint`, `oxlint`,
-`oxfmt`). `eglot-typescript-preset-js-project-markers` accepts lists of filename
-strings.
+- `eglot-typescript-preset-lsp-server` accepts `typescript-language-server`,
+  `deno`, or `rass`.
+- `eglot-typescript-preset-astro-lsp-server` accepts `astro-ls`, `rass`, or
+  `nil`.
+- `eglot-typescript-preset-vue-lsp-server` accepts `vue-language-server`,
+  `rass`, or `nil`.
+- `eglot-typescript-preset-rass-tools`,
+  `eglot-typescript-preset-astro-rass-tools`, and
+  `eglot-typescript-preset-vue-rass-tools` accept lists of known tool symbols
+  (`typescript-language-server`, `vue-language-server`,
+  `tailwindcss-language-server`, `astro-ls`, `biome`, `eslint`, `oxlint`,
+  `oxfmt`).
+- `eglot-typescript-preset-js-project-markers` accepts lists of filename
+  strings.
 
 #### Using `dir-locals-set-directory-class` (init file, no project changes)
 
