@@ -1219,6 +1219,55 @@ workspace root.  TIMEOUT defaults to 20 seconds."
               (should (member "2322"
                               (append .diagnosticCodes nil)))))))))
 
+  (ert-deftest ts-preset--live-diag-tw-invalid-directive ()
+    "Live diagnostic: tailwindcss-language-server flags invalid directive."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "tailwindcss-language-server"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(tailwindcss-language-server))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture
+                             "tw-invalid-directive.css" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "css" tmp-dir)
+              (should .initialized)
+              (should (cl-some (lambda (src)
+                                 (string-match-p "tailwindcss" src))
+                               (append .diagnosticSources nil)))
+              (should (member "invalidTailwindDirective"
+                              (append .diagnosticCodes nil)))))))))
+
+  (ert-deftest ts-preset--live-diag-tw-ts-combo ()
+    "Live diagnostic: typescript + tailwindcss-language-server together."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "typescript-language-server"))
+      (skip-unless (executable-find "tailwindcss-language-server"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(typescript-language-server tailwindcss-language-server))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (test-file (my-test-copy-fixture
+                             "tw-invalid-directive.css" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "css" tmp-dir)
+              (should .initialized)
+              (should (cl-some (lambda (src)
+                                 (string-match-p "tailwindcss" src))
+                               (append .diagnosticSources nil)))
+              (should (member "invalidTailwindDirective"
+                              (append .diagnosticCodes nil)))))))))
+
   ) ;; end of (when ... live tests)
 
 (provide 'test)
