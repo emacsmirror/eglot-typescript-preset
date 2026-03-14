@@ -300,9 +300,9 @@ prompting:
 - `eglot-typescript-preset-rass-tools`,
   `eglot-typescript-preset-astro-rass-tools`, and
   `eglot-typescript-preset-vue-rass-tools` accept lists of known tool symbols
-  (`typescript-language-server`, `vue-language-server`,
-  `tailwindcss-language-server`, `astro-ls`, `biome`, `eslint`, `oxlint`,
-  `oxfmt`).
+  (`astro-ls`, `biome`, `eslint`, `oxfmt`, `oxlint`,
+  `tailwindcss-language-server`, `typescript-language-server`,
+  `vue-language-server`).
 - `eglot-typescript-preset-js-project-markers` accepts lists of filename
   strings.
 
