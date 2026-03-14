@@ -6,6 +6,7 @@
 (require 'cl-lib)
 (require 'ert)
 (require 'json)
+(require 'project)
 (require 'wid-edit)
 (require 'eglot-typescript-preset)
 
@@ -125,7 +126,8 @@ If TARGET-NAME is non-nil, rename the file."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
-             (src-dir (expand-file-name "src/" project-dir)))
+             (src-dir (expand-file-name "src/" project-dir))
+             (eglot-lsp-context t))
         (make-directory src-dir t)
         (with-temp-file (expand-file-name "package.json" project-dir)
           (insert "{}"))
@@ -140,7 +142,8 @@ If TARGET-NAME is non-nil, rename the file."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
-             (src-dir (expand-file-name "src/" project-dir)))
+             (src-dir (expand-file-name "src/" project-dir))
+             (eglot-lsp-context t))
         (make-directory src-dir t)
         (with-temp-file (expand-file-name "tsconfig.json" project-dir)
           (insert "{}"))
@@ -153,7 +156,8 @@ If TARGET-NAME is non-nil, rename the file."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
-             (src-dir (expand-file-name "src/" project-dir)))
+             (src-dir (expand-file-name "src/" project-dir))
+             (eglot-lsp-context t))
         (make-directory src-dir t)
         (with-temp-file (expand-file-name "jsconfig.json" project-dir)
           (insert "{}"))
@@ -165,7 +169,8 @@ If TARGET-NAME is non-nil, rename the file."
   "Return nil when no project markers found."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
-      (let* ((project-dir (expand-file-name "noproject/" tmp-dir)))
+      (let* ((project-dir (expand-file-name "noproject/" tmp-dir))
+             (eglot-lsp-context t))
         (make-directory project-dir t)
         (should-not (eglot-typescript-preset--project-find project-dir))))))
 
@@ -173,13 +178,77 @@ If TARGET-NAME is non-nil, rename the file."
   "Project root returns the correct directory."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
-      (let* ((project-dir (expand-file-name "myproject/" tmp-dir)))
-        (make-directory project-dir t)
+      (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
+             (src-file (expand-file-name "src/index.ts" project-dir)))
+        (make-directory (file-name-directory src-file) t)
         (with-temp-file (expand-file-name "package.json" project-dir)
           (insert "{}"))
-        (let ((project (eglot-typescript-preset--project-find project-dir)))
-          (should (string= (project-root project)
-                           (file-name-as-directory project-dir))))))))
+        (with-temp-file src-file (insert ""))
+        (with-current-buffer (find-file-noselect src-file)
+          (unwind-protect
+              (should (string= (eglot-typescript-preset--project-root)
+                               (file-name-as-directory project-dir)))
+            (kill-buffer)))))))
+
+
+(ert-deftest ts-preset--project-find-without-lsp-context ()
+  "Return nil when eglot-lsp-context is not set."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
+             (src-dir (expand-file-name "src/" project-dir))
+             (eglot-lsp-context nil))
+        (make-directory src-dir t)
+        (with-temp-file (expand-file-name "package.json" project-dir)
+          (insert "{}"))
+        (should-not (eglot-typescript-preset--project-find src-dir))))))
+
+(ert-deftest ts-preset--monorepo-project-boundary ()
+  "In a monorepo, project-find-file escapes the LSP project boundary.
+With eglot-lsp-context, --project-find scopes to the JS project.
+Without it, project-try-vc returns the git root, and project-files
+respects .gitignore (excludes dist/) while including files outside
+the JS project boundary."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((monorepo-dir (my-test-copy-fixture-dir "monorepo" tmp-dir))
+             (frontend-dir (expand-file-name "frontend/" monorepo-dir))
+             (frontend-src (expand-file-name "src/" frontend-dir))
+             (frontend-dist (expand-file-name "dist/" frontend-dir))
+             (default-directory monorepo-dir))
+        ;; Initialize git repo and commit the fixture files
+        (call-process "git" nil nil nil "init" "-q" monorepo-dir)
+        (call-process "git" nil nil nil "-C" monorepo-dir "add" ".")
+        (call-process "git" nil nil nil "-C" monorepo-dir
+                      "-c" "user.name=Test" "-c" "user.email=test@test"
+                      "commit" "-q" "-m" "init")
+        ;; Create dist/ file after commit (gitignored build output)
+        (make-directory frontend-dist t)
+        (with-temp-file (expand-file-name "bundle.js" frontend-dist)
+          (insert "compiled output\n"))
+        ;; 1. With eglot-lsp-context, project-find scopes to frontend
+        (let ((eglot-lsp-context t))
+          (let ((result (eglot-typescript-preset--project-find frontend-src)))
+            (should result)
+            (should (eq (car result) 'js-project))
+            (should (string= (cdr result)
+                             (file-name-as-directory frontend-dir)))))
+        ;; 2. Without eglot-lsp-context, project-find returns nil
+        (let ((eglot-lsp-context nil))
+          (should-not (eglot-typescript-preset--project-find frontend-src)))
+        ;; 3. project-try-vc finds the git root (monorepo root)
+        (let ((vc-project (project-try-vc frontend-src)))
+          (should vc-project)
+          (should (string= (file-name-as-directory monorepo-dir)
+                           (project-root vc-project)))
+          ;; 4. project-files includes backend but excludes dist/
+          (let ((files (project-files vc-project)))
+            (should (cl-some (lambda (f) (string-suffix-p "backend/server.js" f))
+                             files))
+            (should (cl-some (lambda (f) (string-suffix-p "frontend/src/index.ts" f))
+                             files))
+            (should-not (cl-some (lambda (f) (string-match-p "dist/" f))
+                                 files))))))))
 
 
 ;;; --- TSDK detection tests ---

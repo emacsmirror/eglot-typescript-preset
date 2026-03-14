@@ -657,11 +657,17 @@ Returns the preset path, or nil when RASS-COMMAND is set."
               (file-exists-p (expand-file-name file dir)))
             eglot-typescript-preset-js-project-markers))
 
+(defvar eglot-lsp-context nil)
+
 (defun eglot-typescript-preset--project-find (dir)
   "Project detection for JavaScript and TypeScript files.
 
-Returns (js-project . ROOT) if DIR is inside a JS/TS project."
-  (unless (eglot-typescript-preset--in-indirect-md-buffer-p)
+Returns (js-project . ROOT) if DIR is inside a JS/TS project.
+Only activates when `eglot-lsp-context' is non-nil so that
+`project-find-file' and other project.el commands fall through to
+the VC backend, which respects .gitignore."
+  (when (and (bound-and-true-p eglot-lsp-context)
+             (not (eglot-typescript-preset--in-indirect-md-buffer-p)))
     (when-let* ((root (locate-dominating-file
                        dir
                        #'eglot-typescript-preset--js-project-root-p)))
@@ -670,9 +676,10 @@ Returns (js-project . ROOT) if DIR is inside a JS/TS project."
 (defun eglot-typescript-preset--project-root ()
   "Return the current buffer's project root."
   (when-let* ((file (buffer-file-name))
-              (project (eglot-typescript-preset--project-find
-                        (file-name-directory file))))
-    (project-root project)))
+              (root (locate-dominating-file
+                     (file-name-directory file)
+                     #'eglot-typescript-preset--js-project-root-p)))
+    (file-name-as-directory root)))
 
 (cl-defmethod project-root ((project (head js-project)))
   "Return root directory of PROJECT."
