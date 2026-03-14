@@ -72,6 +72,9 @@ def main():
         "typescript-language-server": module._server_kind(
             "typescript-language-server"
         ),
+        "vscode-css-language-server": module._server_kind(
+            "vscode-css-language-server"
+        ),
         "vue-language-server": module._server_kind("vue-language-server"),
         "unknown": module._server_kind("custom-lsp"),
     }

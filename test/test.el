@@ -97,6 +97,10 @@ If TARGET-NAME is non-nil, rename the file."
          '(typescript-language-server eslint))
         (eglot-typescript-preset-astro-rass-tools
          '(astro-ls eslint))
+        (eglot-typescript-preset-css-lsp-server 'rass)
+        (eglot-typescript-preset-css-rass-command nil)
+        (eglot-typescript-preset-css-rass-tools
+         '(vscode-css-language-server tailwindcss-language-server))
         (eglot-typescript-preset-vue-lsp-server 'vue-language-server)
         (eglot-typescript-preset-vue-rass-command nil)
         (eglot-typescript-preset-vue-rass-tools
@@ -109,6 +113,7 @@ If TARGET-NAME is non-nil, rename the file."
          '(jtsx-jsx-mode jtsx-tsx-mode jtsx-typescript-mode
            js-mode js-ts-mode typescript-ts-mode tsx-ts-mode))
         (eglot-typescript-preset-astro-modes '(astro-ts-mode))
+        (eglot-typescript-preset-css-modes '(css-mode css-ts-mode))
         (eglot-typescript-preset-vue-modes '(vue-mode vue-ts-mode))
         (user-emacs-directory (file-name-as-directory tmp-dir)))
     (funcall fn)))
@@ -327,6 +332,12 @@ the JS project boundary."
                "tailwindcss-language-server")
               'tailwindcss-language-server))
   (should (eq (eglot-typescript-preset--tool-kind-from-name
+               "vscode-css-language-server")
+              'vscode-css-language-server))
+  (should (eq (eglot-typescript-preset--tool-kind-from-name
+               "css-language-server")
+              'vscode-css-language-server))
+  (should (eq (eglot-typescript-preset--tool-kind-from-name
                "vue-language-server")
               'vue-language-server))
   (should-not (eglot-typescript-preset--tool-kind-from-name "unknown-tool"))
@@ -386,6 +397,14 @@ the JS project boundary."
                   'tailwindcss-language-server)))
         (should (equal (cadr cmd) "--stdio"))))))
 
+(ert-deftest ts-preset--rass-tool-command-vscode-css ()
+  "Generate vscode-css-language-server command."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((cmd (eglot-typescript-preset--rass-tool-command
+                  'vscode-css-language-server)))
+        (should (equal (cadr cmd) "--stdio"))))))
+
 (ert-deftest ts-preset--rass-tool-command-vue ()
   "Generate vue-language-server command."
   (my-test-with-tmp-dir tmp-dir
@@ -430,6 +449,9 @@ the JS project boundary."
   (should (string= (eglot-typescript-preset--rass-tool-label
                      'tailwindcss-language-server)
                     "tailwindcss-language-server"))
+  (should (string= (eglot-typescript-preset--rass-tool-label
+                     'vscode-css-language-server)
+                    "vscode-css-language-server"))
   (should (string= (eglot-typescript-preset--rass-tool-label
                      'vue-language-server)
                     "vue-language-server")))
@@ -710,6 +732,8 @@ the JS project boundary."
               (should (equal .astro-ls "astro-ls"))
               (should (equal .tailwindcss-language-server
                              "tailwindcss-language-server"))
+              (should (equal .vscode-css-language-server
+                             "vscode-css-language-server"))
               (should (equal .vue-language-server "vue-language-server"))
               (should (equal .unknown :null)))))))))
 
@@ -887,6 +911,38 @@ the JS project boundary."
           (should (equal contact '("rass" "/custom/preset.py"))))))))
 
 
+;;; --- CSS server contact tests ---
+
+(ert-deftest ts-preset--css-server-contact-rass ()
+  "CSS server contact returns rass command."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((contact (eglot-typescript-preset--css-server-contact nil)))
+        (should (listp contact))
+        (should (string-match-p "rass" (car contact)))))))
+
+(ert-deftest ts-preset--css-server-contact-standalone ()
+  "CSS server contact returns vscode-css-language-server when configured."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-css-lsp-server
+             'vscode-css-language-server))
+        (let ((contact (eglot-typescript-preset--css-server-contact nil)))
+          (should (listp contact))
+          (should (string-match-p "vscode-css-language-server"
+                                  (car contact)))
+          (should (equal (cadr contact) "--stdio")))))))
+
+(ert-deftest ts-preset--css-server-contact-rass-command ()
+  "CSS server contact uses rass-command verbatim."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-css-rass-command
+             ["rass" "csstail"]))
+        (let ((contact (eglot-typescript-preset--css-server-contact nil)))
+          (should (equal contact '("rass" "csstail"))))))))
+
+
 ;;; --- Vue server contact tests ---
 
 (ert-deftest ts-preset--vue-server-contact-basic ()
@@ -952,7 +1008,7 @@ the JS project boundary."
       (let ((eglot-server-programs nil)
             (project-find-functions nil))
         (eglot-typescript-preset-setup)
-        (should (>= (length eglot-server-programs) 3))
+        (should (>= (length eglot-server-programs) 4))
         (should (member #'eglot-typescript-preset--project-find
                         project-find-functions))))))
 
@@ -964,7 +1020,17 @@ the JS project boundary."
             (project-find-functions nil)
             (eglot-typescript-preset-astro-lsp-server nil))
         (eglot-typescript-preset-setup)
-        (should (= (length eglot-server-programs) 2))))))
+        (should (= (length eglot-server-programs) 3))))))
+
+(ert-deftest ts-preset--setup-skips-css-when-disabled ()
+  "Setup skips CSS when css-lsp-server is nil."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-server-programs nil)
+            (project-find-functions nil)
+            (eglot-typescript-preset-css-lsp-server nil))
+        (eglot-typescript-preset-setup)
+        (should (= (length eglot-server-programs) 3))))))
 
 (ert-deftest ts-preset--setup-skips-vue-when-disabled ()
   "Setup skips Vue when vue-lsp-server is nil."
@@ -974,7 +1040,7 @@ the JS project boundary."
             (project-find-functions nil)
             (eglot-typescript-preset-vue-lsp-server nil))
         (eglot-typescript-preset-setup)
-        (should (= (length eglot-server-programs) 2))))))
+        (should (= (length eglot-server-programs) 3))))))
 
 
 ;;; --- Widget type validation ---
@@ -1041,6 +1107,15 @@ the JS project boundary."
   (should-not (eglot-typescript-preset--astro-lsp-server-safe-p 'unknown))
   (should-not (eglot-typescript-preset--astro-lsp-server-safe-p "astro-ls")))
 
+(ert-deftest ts-preset--css-lsp-server-safe-local-variable ()
+  (should (eglot-typescript-preset--css-lsp-server-safe-p
+           'vscode-css-language-server))
+  (should (eglot-typescript-preset--css-lsp-server-safe-p 'rass))
+  (should (eglot-typescript-preset--css-lsp-server-safe-p nil))
+  (should-not (eglot-typescript-preset--css-lsp-server-safe-p 'unknown))
+  (should-not (eglot-typescript-preset--css-lsp-server-safe-p
+               "vscode-css-language-server")))
+
 (ert-deftest ts-preset--vue-lsp-server-safe-local-variable ()
   (should (eglot-typescript-preset--vue-lsp-server-safe-p 'vue-language-server))
   (should (eglot-typescript-preset--vue-lsp-server-safe-p 'rass))
@@ -1056,6 +1131,8 @@ the JS project boundary."
            '(typescript-language-server biome oxlint oxfmt)))
   (should (eglot-typescript-preset--rass-tools-safe-p
            '(astro-ls eslint)))
+  (should (eglot-typescript-preset--rass-tools-safe-p
+           '(vscode-css-language-server tailwindcss-language-server)))
   (should (eglot-typescript-preset--rass-tools-safe-p
            '(vue-language-server tailwindcss-language-server)))
   (should (eglot-typescript-preset--rass-tools-safe-p '()))
@@ -1366,6 +1443,31 @@ workspace root.  TIMEOUT defaults to 20 seconds."
                                  (string-match-p "tailwindcss" src))
                                (append .diagnosticSources nil)))
               (should (member "cssConflict"
+                              (append .diagnosticCodes nil)))))))))
+
+  (ert-deftest ts-preset--live-diag-css-rass-invalid-directive ()
+    "Live diagnostic: vscode-css + tailwindcss via rass flags invalid directive."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "vscode-css-language-server"))
+      (skip-unless (executable-find "tailwindcss-language-server"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-css-rass-tools
+                  '(vscode-css-language-server tailwindcss-language-server))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-css-rass-tools nil))
+                 (test-file (my-test-copy-fixture
+                             "tw-invalid-directive.css" tmp-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "css" tmp-dir)
+              (should .initialized)
+              (should (cl-some (lambda (src)
+                                 (string-match-p "tailwindcss" src))
+                               (append .diagnosticSources nil)))
+              (should (member "invalidTailwindDirective"
                               (append .diagnosticCodes nil)))))))))
 
   ) ;; end of (when ... live tests)

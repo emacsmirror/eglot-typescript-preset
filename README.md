@@ -1,15 +1,16 @@
 # eglot-typescript-preset
 
-Configures TypeScript, JavaScript, Astro, and Vue LSP support for Emacs using
-[Eglot](https://github.com/joaotavora/eglot), with optional linter and formatter
-integration via [rassumfrassum](https://github.com/joaotavora/rassumfrassum).
+Configures TypeScript, JavaScript, CSS, Astro, and Vue LSP support for Emacs
+using [Eglot](https://github.com/joaotavora/eglot), with optional linter and
+formatter integration via
+[rassumfrassum](https://github.com/joaotavora/rassumfrassum).
 
 This package configures Eglot to work with TypeScript and JavaScript files using
 [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server),
 [deno](https://deno.land/), or
 [rassumfrassum](https://github.com/joaotavora/rassumfrassum) as the language
 server frontend. It supports combining multiple tools -- ESLint, Biome, oxlint,
-and oxfmt -- through generated `rass` presets, and includes Astro and Vue
+and oxfmt -- through generated `rass` presets, and includes CSS, Astro, and Vue
 support via their respective language servers.
 
 ## Prerequisites
@@ -28,6 +29,8 @@ support via their respective language servers.
   - [oxlint](https://oxc.rs/docs/guide/usage/linter.html) -- fast linter
   - [tailwindcss-language-server](https://github.com/tailwindlabs/tailwindcss-intellisense)
     -- Tailwind CSS support
+  - [vscode-css-language-server](https://github.com/ArkadyRudenko/vscode-css-languageserver-bin)
+    -- CSS language features
 - Optional for Astro:
   - [@astrojs/language-server](https://github.com/withastro/language-tools)
     (provides the `astro-ls` command)
@@ -38,8 +41,8 @@ support via their respective language servers.
 ## Installation
 
 Choose one of the following ways to install. After that, opening TypeScript,
-JavaScript, Astro, or Vue files will automatically start the LSP server using
-Eglot.
+JavaScript, CSS, Astro, or Vue files will automatically start the LSP server
+using Eglot.
 
 ### From MELPA (recommended)
 
@@ -85,6 +88,14 @@ Set the LSP server to `deno` for projects that use Deno instead of Node.js:
 This starts `deno lsp` with `enable` and `lint` enabled. Per-project
 configuration via `.dir-locals.el` is also supported (see below).
 
+### CSS Projects
+
+When `eglot-typescript-preset-css-lsp-server` is set (default: `rass`), the
+package configures Eglot for `css-mode` and `css-ts-mode` buffers. The default
+`rass` backend combines `vscode-css-language-server` (for standard CSS language
+features) with `tailwindcss-language-server` (for Tailwind CSS diagnostics and
+completions).
+
 ### Astro Projects
 
 When `eglot-typescript-preset-astro-lsp-server` is set (default: `astro-ls`),
@@ -118,6 +129,18 @@ Choose which language server to use for TypeScript/JavaScript:
 (setopt eglot-typescript-preset-lsp-server 'deno)
 ;; or
 (setopt eglot-typescript-preset-lsp-server 'rass)
+```
+
+### `eglot-typescript-preset-css-lsp-server`
+
+Choose which language server to use for CSS:
+
+```elisp
+(setopt eglot-typescript-preset-css-lsp-server 'rass) ; default
+;; or
+(setopt eglot-typescript-preset-css-lsp-server 'vscode-css-language-server)
+;; or
+(setopt eglot-typescript-preset-css-lsp-server nil) ; disable CSS support
 ```
 
 ### `eglot-typescript-preset-astro-lsp-server`
@@ -164,6 +187,7 @@ Available symbolic tools:
 - `oxlint`
 - `tailwindcss-language-server`
 - `typescript-language-server`
+- `vscode-css-language-server`
 - `vue-language-server`
 
 You can also pass literal command vectors:
@@ -173,6 +197,15 @@ You can also pass literal command vectors:
         '(typescript-language-server
           biome
           ["custom-lsp" "--stdio"]))
+```
+
+### `eglot-typescript-preset-css-rass-tools`
+
+Same as above, but for CSS files:
+
+```elisp
+(setopt eglot-typescript-preset-css-rass-tools
+        '(vscode-css-language-server tailwindcss-language-server)) ; default
 ```
 
 ### `eglot-typescript-preset-astro-rass-tools`
@@ -199,6 +232,14 @@ Bypass the generated preset entirely with an exact `rass` command vector:
 
 ```elisp
 (setopt eglot-typescript-preset-rass-command ["rass" "tslint"])
+```
+
+### `eglot-typescript-preset-css-rass-command`
+
+Same as above, but for CSS files:
+
+```elisp
+(setopt eglot-typescript-preset-css-rass-command ["rass" "csstail"])
 ```
 
 ### `eglot-typescript-preset-astro-rass-command`
@@ -244,6 +285,14 @@ Major modes for JavaScript and TypeScript files:
 (setopt eglot-typescript-preset-js-modes
         '(jtsx-jsx-mode jtsx-tsx-mode jtsx-typescript-mode
           js-mode js-ts-mode typescript-ts-mode tsx-ts-mode)) ; default
+```
+
+### `eglot-typescript-preset-css-modes`
+
+Major modes for CSS files:
+
+```elisp
+(setopt eglot-typescript-preset-css-modes '(css-mode css-ts-mode)) ; default
 ```
 
 ### `eglot-typescript-preset-astro-modes`
@@ -295,14 +344,17 @@ prompting:
   `deno`, or `rass`.
 - `eglot-typescript-preset-astro-lsp-server` accepts `astro-ls`, `rass`, or
   `nil`.
+- `eglot-typescript-preset-css-lsp-server` accepts `vscode-css-language-server`,
+  `rass`, or `nil`.
 - `eglot-typescript-preset-vue-lsp-server` accepts `vue-language-server`,
   `rass`, or `nil`.
 - `eglot-typescript-preset-rass-tools`,
-  `eglot-typescript-preset-astro-rass-tools`, and
+  `eglot-typescript-preset-astro-rass-tools`,
+  `eglot-typescript-preset-css-rass-tools`, and
   `eglot-typescript-preset-vue-rass-tools` accept lists of known tool symbols
   (`astro-ls`, `biome`, `eslint`, `oxfmt`, `oxlint`,
   `tailwindcss-language-server`, `typescript-language-server`,
-  `vue-language-server`).
+  `vscode-css-language-server`, `vue-language-server`).
 - `eglot-typescript-preset-js-project-markers` accepts lists of filename
   strings.
 
@@ -338,6 +390,10 @@ project.
   directory and updates it as needed. Context-free presets are reused across
   buffers, while project-local `node_modules` and Astro/Vue TSDK cases keep
   separate generated files.
+- The CSS `rass` backend combines `vscode-css-language-server` with
+  `tailwindcss-language-server` by default. If you do not use Tailwind CSS, set
+  `eglot-typescript-preset-css-lsp-server` to `vscode-css-language-server` for
+  standalone CSS support, or to `nil` to disable.
 
 ## Notes
 

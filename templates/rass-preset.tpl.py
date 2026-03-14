@@ -33,6 +33,9 @@ def _server_kind(name: str) -> str | None:
         return "tailwindcss-language-server"
     if base in ("typescript-language-server", "tsserver"):
         return "typescript-language-server"
+    if base in ("vscode-css-language-server", "css-language-server",
+                "css-languageserver"):
+        return "vscode-css-language-server"
     if base == "vue-language-server":
         return "vue-language-server"
     return None
