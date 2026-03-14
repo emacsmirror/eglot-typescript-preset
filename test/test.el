@@ -66,6 +66,13 @@ If TARGET-NAME is non-nil, rename the file."
     (copy-file src dst t)
     dst))
 
+(defun my-test-copy-fixture-dir (name target-dir)
+  "Copy fixture subdirectory NAME into TARGET-DIR.  Return the new path."
+  (let ((src (expand-file-name name my-test-fixtures-dir))
+        (dst (expand-file-name name target-dir)))
+    (copy-directory src dst nil t t)
+    dst))
+
 (defun my-test--with-tmp-dir (fn)
   "Call FN with a temporary directory, cleaned up afterward."
   (let ((tmp (make-temp-file "eglot-ts-test-" t)))
@@ -1266,6 +1273,30 @@ workspace root.  TIMEOUT defaults to 20 seconds."
                                  (string-match-p "tailwindcss" src))
                                (append .diagnosticSources nil)))
               (should (member "invalidTailwindDirective"
+                              (append .diagnosticCodes nil)))))))))
+
+  (ert-deftest ts-preset--live-diag-tw-astro-css-conflict ()
+    "Live diagnostic: tailwindcss flags conflicting classes in Astro file."
+    (skip-unless (my-test--live-local-bins-available-p))
+    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+      (skip-unless (executable-find "rass"))
+      (skip-unless (executable-find "tailwindcss-language-server"))
+      (my-test-with-tmp-dir tmp-dir
+        (my-test-with-project-env tmp-dir
+          (let* ((eglot-typescript-preset-rass-tools
+                  '(tailwindcss-language-server))
+                 (path (eglot-typescript-preset--rass-preset-path
+                        eglot-typescript-preset-rass-tools nil))
+                 (tw-dir (my-test-copy-fixture-dir "tw-project" tmp-dir))
+                 (test-file (expand-file-name "css-conflict.astro" tw-dir)))
+            (my-test-copy-fixture "package.json" tmp-dir)
+            (let-alist (my-test--run-rass-with-diagnostics
+                        path test-file "astro" tw-dir)
+              (should .initialized)
+              (should (cl-some (lambda (src)
+                                 (string-match-p "tailwindcss" src))
+                               (append .diagnosticSources nil)))
+              (should (member "cssConflict"
                               (append .diagnosticCodes nil)))))))))
 
   ) ;; end of (when ... live tests)
