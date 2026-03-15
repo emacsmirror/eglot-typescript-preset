@@ -1706,5 +1706,68 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 
   ) ;; end of (when ... live tests)
 
+(defun my-test-run-live-tests-parallel ()
+  "Run all live tests in parallel child Emacs processes, then exit.
+Parallelism defaults to 6 or the LIVE_TEST_JOBS env variable."
+  (let* ((max-jobs (string-to-number (or (getenv "LIVE_TEST_JOBS") "6")))
+         (test-names
+          (with-temp-buffer
+            (insert-file-contents
+             (expand-file-name "test/test.el" my-test-project-dir))
+            (let (names)
+              (while (re-search-forward
+                      "ert-deftest \\(ts-preset--live-[^ ()]+\\)" nil t)
+                (push (match-string 1) names))
+              (nreverse names))))
+         (total (length test-names))
+         (emacs-bin (expand-file-name invocation-name invocation-directory))
+         (preset-el (expand-file-name
+                     "eglot-typescript-preset.el" my-test-project-dir))
+         (test-el (expand-file-name "test/test.el" my-test-project-dir))
+         (running '())
+         (passed 0)
+         (failed 0)
+         (failures '()))
+    (message "Running %d live tests with up to %d parallel jobs..."
+             total max-jobs)
+    (while (or test-names running)
+      ;; Launch jobs up to max-jobs
+      (while (and test-names (< (length running) max-jobs))
+        (let* ((name (pop test-names))
+               (buf (generate-new-buffer (concat " *live-test:" name "*")))
+               (proc (start-process
+                      name buf emacs-bin
+                      "-Q" "--batch"
+                      "-l" preset-el
+                      "--eval" "(setq my-test-run-live-tests t)"
+                      "-l" test-el
+                      "--eval"
+                      (format "(ert-run-tests-batch-and-exit \"^%s$\")" name))))
+          (set-process-sentinel proc #'ignore)
+          (push (list name proc buf) running)))
+      ;; Poll for completion
+      (sleep-for 0.1)
+      (let (still-running)
+        (dolist (entry running)
+          (cl-destructuring-bind (name proc buf) entry
+            (if (process-live-p proc)
+                (push entry still-running)
+              (let ((rc (process-exit-status proc))
+                    (output (with-current-buffer buf (buffer-string))))
+                (if (= rc 0)
+                    (progn
+                      (cl-incf passed)
+                      (message "PASS: %s" name))
+                  (cl-incf failed)
+                  (push name failures)
+                  (message "FAIL: %s" name)
+                  (message "%s" (car (last (split-string output "\n\n")))))
+                (kill-buffer buf)))))
+        (setq running (nreverse still-running))))
+    (message "\n%d/%d live tests passed." passed total)
+    (when failures
+      (message "Failures: %s" (string-join (nreverse failures) ", ")))
+    (kill-emacs (if (= failed 0) 0 1))))
+
 (provide 'test)
 ;;; test.el ends here

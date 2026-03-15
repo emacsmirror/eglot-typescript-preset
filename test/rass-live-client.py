@@ -169,13 +169,16 @@ def main():
                     and files_opened
                     and files_with_diags >= all_file_uris
                     and stable_since is not None
-                    and time.monotonic() - stable_since > args.settle
-                    and all(
+                ):
+                    idle = time.monotonic() - stable_since
+                    events_met = all(
                         diag_event_count[u] >= args.min_events
                         for u in all_file_uris
                     )
-                ):
-                    break
+                    if events_met and idle > args.settle:
+                        break
+                    if idle > args.settle * 2:
+                        break
                 continue
 
             method = message.get("method")
