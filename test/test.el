@@ -1274,437 +1274,450 @@ the JS project boundary."
 
 ;;; --- Live tests (opt-in) ---
 
-(when (or my-test-run-live-tests
-          (getenv "MY_TEST_RUN_LIVE_TESTS"))
+(defun my-test-live-tests-enabled-p ()
+  "Return non-nil when opt-in live tests should run."
+  (or my-test-run-live-tests
+      (getenv "MY_TEST_RUN_LIVE_TESTS")))
 
-  (defun my-test--live-local-bins-available-p ()
-    "Return non-nil if local node_modules/.bin exists."
-    (file-directory-p my-test-local-bin-dir))
+(defun my-test--live-local-bins-available-p ()
+  "Return non-nil if local node_modules/.bin exists."
+  (file-directory-p my-test-local-bin-dir))
 
-  (defun my-test--run-rass-session (preset-path file-specs root-dir
-                                                &optional timeout min-events)
-    "Run rass-live-client with multiple files and return parsed result.
+(defun my-test--run-rass-session (preset-path file-specs root-dir
+                                              &optional timeout min-events)
+  "Run rass-live-client with multiple files and return parsed result.
 PRESET-PATH is the rass preset.  FILE-SPECS is a list of
 \(FILE-PATH . LANGUAGE-ID) cons cells.  ROOT-DIR is the workspace
 root.  TIMEOUT defaults to 20 seconds.  MIN-EVENTS is the minimum
 publishDiagnostics events per file before settle starts (default 1)."
-    (let* ((timeout (or timeout 20))
-           (min-events (or min-events 1))
-           (file-args (mapconcat
-                       (lambda (spec)
-                         (format "%s:%s"
-                                 (shell-quote-argument (car spec))
-                                 (shell-quote-argument (cdr spec))))
-                       file-specs " "))
-           (output (shell-command-to-string
-                    (format
-                     "python3 %s %s %s --root %s --timeout %s --min-events %s"
-                     (shell-quote-argument my-test-live-rass-client)
-                     (shell-quote-argument preset-path)
-                     file-args
-                     (shell-quote-argument root-dir)
-                     timeout
-                     min-events))))
-      (json-parse-string output :object-type 'alist)))
+  (let* ((timeout (or timeout 20))
+         (min-events (or min-events 1))
+         (file-args (mapconcat
+                     (lambda (spec)
+                       (format "%s:%s"
+                               (shell-quote-argument (car spec))
+                               (shell-quote-argument (cdr spec))))
+                     file-specs " "))
+         (output (shell-command-to-string
+                  (format
+                   "python3 %s %s %s --root %s --timeout %s --min-events %s"
+                   (shell-quote-argument my-test-live-rass-client)
+                   (shell-quote-argument preset-path)
+                   file-args
+                   (shell-quote-argument root-dir)
+                   timeout
+                   min-events))))
+    (json-parse-string output :object-type 'alist)))
 
-  (defun my-test--session-file-result (session-result file-path)
-    "Extract per-file diagnostics from SESSION-RESULT for FILE-PATH."
-    (let* ((files (alist-get 'files session-result))
-           (uri (concat "file://" (expand-file-name file-path))))
-      (alist-get (intern uri) files)))
+(defun my-test--session-file-result (session-result file-path)
+  "Extract per-file diagnostics from SESSION-RESULT for FILE-PATH."
+  (let* ((files (alist-get 'files session-result))
+         (uri (concat "file://" (expand-file-name file-path))))
+    (alist-get (intern uri) files)))
 
-  (defun my-test--assert-file-diagnostics (session-result file-path
-                                                          expected-codes
-                                                          &optional expected-sources)
-    "Assert FILE-PATH in SESSION-RESULT has exactly EXPECTED-CODES.
+(defun my-test--assert-file-diagnostics (session-result file-path
+                                                        expected-codes
+                                                        &optional expected-sources)
+  "Assert FILE-PATH in SESSION-RESULT has exactly EXPECTED-CODES.
 SESSION-RESULT is the parsed multi-file result.  EXPECTED-CODES is
 compared as sorted deduplicated sets.  EXPECTED-SOURCES, when
 non-nil, lists source patterns that must each match at least one
 actual source."
-    (should (alist-get 'initialized session-result))
-    (let* ((file-data (my-test--session-file-result session-result file-path))
-           (actual-codes (sort (delete-dups
-                                (append (alist-get 'diagnosticCodes file-data) nil))
-                               #'string<))
-           (expected (sort (copy-sequence expected-codes) #'string<)))
-      (should (equal actual-codes expected))
-      (dolist (src-pat expected-sources)
-        (should (cl-some (lambda (s) (string-match-p src-pat s))
-                         (append (alist-get 'diagnosticSources file-data) nil))))))
+  (should (alist-get 'initialized session-result))
+  (let* ((file-data (my-test--session-file-result session-result file-path))
+         (actual-codes (sort (delete-dups
+                              (append (alist-get 'diagnosticCodes file-data) nil))
+                             #'string<))
+         (expected (sort (copy-sequence expected-codes) #'string<)))
+    (should (equal actual-codes expected))
+    (dolist (src-pat expected-sources)
+      (should (cl-some (lambda (s) (string-match-p src-pat s))
+                       (append (alist-get 'diagnosticSources file-data) nil))))))
 
-  (defun my-test--setup-fixture-dir (fixture-subdir tmp-dir
-                                                    &optional need-node-modules)
-    "Copy FIXTURE-SUBDIR contents into TMP-DIR.
+(defun my-test--setup-fixture-dir (fixture-subdir tmp-dir
+                                                  &optional need-node-modules)
+  "Copy FIXTURE-SUBDIR contents into TMP-DIR.
 When NEED-NODE-MODULES is non-nil, symlink node_modules."
-    (let ((src-dir (expand-file-name fixture-subdir my-test-fixtures-dir)))
-      (dolist (file (directory-files src-dir nil "\\`[^.]"))
-        (unless (string= file "node_modules")
-          (let ((src (expand-file-name file src-dir))
-                (dst (expand-file-name file tmp-dir)))
-            (if (file-directory-p src)
-                (copy-directory src dst nil t t)
-              (copy-file src dst t))))))
-    (when need-node-modules
-      (my-test-link-node-modules tmp-dir)))
+  (let ((src-dir (expand-file-name fixture-subdir my-test-fixtures-dir)))
+    (dolist (file (directory-files src-dir nil "\\`[^.]"))
+      (unless (string= file "node_modules")
+        (let ((src (expand-file-name file src-dir))
+              (dst (expand-file-name file tmp-dir)))
+          (if (file-directory-p src)
+              (copy-directory src dst nil t t)
+            (copy-file src dst t))))))
+  (when need-node-modules
+    (my-test-link-node-modules tmp-dir)))
 
-  ;; --- TypeScript + eslint ---
+;; --- TypeScript + eslint ---
 
-  (ert-deftest ts-preset--live-ts-eslint ()
-    "Live: typescript-language-server + eslint on valid and debugger files."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "typescript-language-server"))
-      (skip-unless (executable-find "vscode-eslint-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-rass-tools
-                  '(typescript-language-server eslint))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-rass-tools nil)))
-            (my-test--setup-fixture-dir "eslint" tmp-dir t)
-            (let* ((valid (expand-file-name "valid.ts" tmp-dir))
-                   (debugger-f (expand-file-name "debugger.ts" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,valid . "typescript")
-                              (,debugger-f . "typescript"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics result valid '())
-              (my-test--assert-file-diagnostics
-               result debugger-f '("no-debugger") '("eslint"))))))))
+(ert-deftest ts-preset--live-ts-eslint ()
+  "Live: typescript-language-server + eslint on valid and debugger files."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (skip-unless (executable-find "vscode-eslint-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-rass-tools
+							    '(typescript-language-server eslint))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-rass-tools nil)))
+						      (my-test--setup-fixture-dir "eslint" tmp-dir t)
+						      (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+							     (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,valid . "typescript")
+									(,debugger-f . "typescript"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics result valid '())
+							(my-test--assert-file-diagnostics
+							 result debugger-f '("no-debugger") '("eslint"))))))))
 
-  ;; --- TypeScript + biome ---
+;; --- TypeScript + biome ---
 
-  (ert-deftest ts-preset--live-ts-biome ()
-    "Live: typescript-language-server + biome on valid and debugger files."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "typescript-language-server"))
-      (skip-unless (executable-find "biome"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-rass-tools
-                  '(typescript-language-server biome))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-rass-tools nil)))
-            (my-test--setup-fixture-dir "biome" tmp-dir)
-            (let* ((valid (expand-file-name "valid.ts" tmp-dir))
-                   (debugger-f (expand-file-name "debugger.ts" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,valid . "typescript")
-                              (,debugger-f . "typescript"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics result valid '())
-              (my-test--assert-file-diagnostics
-               result debugger-f
-               '("lint/suspicious/noDebugger") '("biome"))))))))
+(ert-deftest ts-preset--live-ts-biome ()
+  "Live: typescript-language-server + biome on valid and debugger files."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (skip-unless (executable-find "biome"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-rass-tools
+							    '(typescript-language-server biome))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-rass-tools nil)))
+						      (my-test--setup-fixture-dir "biome" tmp-dir)
+						      (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+							     (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,valid . "typescript")
+									(,debugger-f . "typescript"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics result valid '())
+							(my-test--assert-file-diagnostics
+							 result debugger-f
+							 '("lint/suspicious/noDebugger") '("biome"))))))))
 
-  ;; --- TypeScript + oxlint ---
+;; --- TypeScript + oxlint ---
 
-  (ert-deftest ts-preset--live-ts-oxlint ()
-    "Live: typescript-language-server + oxlint on debugger and type-error files."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "typescript-language-server"))
-      (skip-unless (executable-find "oxlint"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-rass-tools
-                  '(typescript-language-server oxlint))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-rass-tools nil)))
-            (my-test--setup-fixture-dir "oxlint" tmp-dir)
-            (let* ((debugger-f (expand-file-name "debugger.ts" tmp-dir))
-                   (type-err (expand-file-name "type-error.ts" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,debugger-f . "typescript")
-                              (,type-err . "typescript"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics
-               result debugger-f '("eslint(no-debugger)") '("oxc"))
-              (my-test--assert-file-diagnostics
-               result type-err
-               '("2322" "eslint(no-unused-vars)") '("oxc" "typescript"))))))))
+(ert-deftest ts-preset--live-ts-oxlint ()
+  "Live: typescript-language-server + oxlint on debugger and type-error files."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (skip-unless (executable-find "oxlint"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-rass-tools
+							    '(typescript-language-server oxlint))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-rass-tools nil)))
+						      (my-test--setup-fixture-dir "oxlint" tmp-dir)
+						      (let* ((debugger-f (expand-file-name "debugger.ts" tmp-dir))
+							     (type-err (expand-file-name "type-error.ts" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,debugger-f . "typescript")
+									(,type-err . "typescript"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics
+							 result debugger-f '("eslint(no-debugger)") '("oxc"))
+							(my-test--assert-file-diagnostics
+							 result type-err
+							 '("2322" "eslint(no-unused-vars)") '("oxc" "typescript"))))))))
 
-  ;; --- TypeScript + eslint + oxlint ---
+;; --- TypeScript + eslint + oxlint ---
 
-  (ert-deftest ts-preset--live-ts-eslint-oxlint ()
-    "Live: typescript-language-server + eslint + oxlint on valid and debugger."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "typescript-language-server"))
-      (skip-unless (executable-find "vscode-eslint-language-server"))
-      (skip-unless (executable-find "oxlint"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-rass-tools
-                  '(typescript-language-server eslint oxlint))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-rass-tools nil)))
-            (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
-            (let* ((valid (expand-file-name "valid.ts" tmp-dir))
-                   (debugger-f (expand-file-name "debugger.ts" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,valid . "typescript")
-                              (,debugger-f . "typescript"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics result valid '())
-              (my-test--assert-file-diagnostics
-               result debugger-f
-               '("eslint(no-debugger)") '("oxc"))))))))
+(ert-deftest ts-preset--live-ts-eslint-oxlint ()
+  "Live: typescript-language-server + eslint + oxlint on valid and debugger."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (skip-unless (executable-find "vscode-eslint-language-server"))
+    (skip-unless (executable-find "oxlint"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-rass-tools
+							    '(typescript-language-server eslint oxlint))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-rass-tools nil)))
+						      (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
+						      (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+							     (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,valid . "typescript")
+									(,debugger-f . "typescript"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics result valid '())
+							(my-test--assert-file-diagnostics
+							 result debugger-f
+							 '("eslint(no-debugger)") '("oxc"))))))))
 
-  ;; --- Astro + eslint ---
+;; --- Astro + eslint ---
 
-  (ert-deftest ts-preset--live-astro-eslint ()
-    "Live: astro-ls + eslint flags debugger in Astro frontmatter."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "astro-ls"))
-      (skip-unless (executable-find "vscode-eslint-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-                 (tools '(astro-ls eslint))
-                 (path (eglot-typescript-preset--rass-preset-path tools nil)))
-            (my-test--setup-fixture-dir "eslint" tmp-dir t)
-            (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,debugger-f . "astro"))
-                            tmp-dir 30)))
-              (my-test--assert-file-diagnostics
-               result debugger-f '("no-debugger") '("eslint"))))))))
+(ert-deftest ts-preset--live-astro-eslint ()
+  "Live: astro-ls + eslint flags debugger in Astro frontmatter."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "astro-ls"))
+    (skip-unless (executable-find "vscode-eslint-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+							   (tools '(astro-ls eslint))
+							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
+						      (my-test--setup-fixture-dir "eslint" tmp-dir t)
+						      (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,debugger-f . "astro"))
+								      tmp-dir 30)))
+							(my-test--assert-file-diagnostics
+							 result debugger-f '("no-debugger") '("eslint"))))))))
 
-  ;; --- Astro + oxlint ---
+;; --- Astro + oxlint ---
 
-  (ert-deftest ts-preset--live-astro-oxlint ()
-    "Live: astro-ls + oxlint flags debugger in Astro frontmatter."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "astro-ls"))
-      (skip-unless (executable-find "oxlint"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-                 (tools '(astro-ls oxlint))
-                 (path (eglot-typescript-preset--rass-preset-path tools nil)))
-            (my-test--setup-fixture-dir "oxlint" tmp-dir)
-            (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,debugger-f . "astro"))
-                            tmp-dir 30)))
-              (my-test--assert-file-diagnostics
-               result debugger-f
-               '("eslint(no-debugger)") '("oxc"))))))))
+(ert-deftest ts-preset--live-astro-oxlint ()
+  "Live: astro-ls + oxlint flags debugger in Astro frontmatter."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "astro-ls"))
+    (skip-unless (executable-find "oxlint"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+							   (tools '(astro-ls oxlint))
+							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
+						      (my-test--setup-fixture-dir "oxlint" tmp-dir)
+						      (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,debugger-f . "astro"))
+								      tmp-dir 30)))
+							(my-test--assert-file-diagnostics
+							 result debugger-f
+							 '("eslint(no-debugger)") '("oxc"))))))))
 
-  ;; --- Astro + eslint + oxlint ---
+;; --- Astro + eslint + oxlint ---
 
-  (ert-deftest ts-preset--live-astro-eslint-oxlint ()
-    "Live: astro-ls + eslint + oxlint on valid, type-error, and debugger."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "astro-ls"))
-      (skip-unless (executable-find "vscode-eslint-language-server"))
-      (skip-unless (executable-find "oxlint"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-                 (tools '(astro-ls eslint oxlint))
-                 (path (eglot-typescript-preset--rass-preset-path tools nil)))
-            (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
-            (let* ((valid (expand-file-name "valid.astro" tmp-dir))
-                   (type-err (expand-file-name "type-error.astro" tmp-dir))
-                   (debugger-f (expand-file-name "debugger.astro" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,valid . "astro")
-                              (,type-err . "astro")
-                              (,debugger-f . "astro"))
-                            tmp-dir 30)))
-              (my-test--assert-file-diagnostics result valid '())
-              (my-test--assert-file-diagnostics
-               result type-err '("2322" "6133") '("ts"))
-              (my-test--assert-file-diagnostics
-               result debugger-f
-               '("eslint(no-debugger)") '("oxc"))))))))
+(ert-deftest ts-preset--live-astro-eslint-oxlint ()
+  "Live: astro-ls + eslint + oxlint on valid, type-error, and debugger."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "astro-ls"))
+    (skip-unless (executable-find "vscode-eslint-language-server"))
+    (skip-unless (executable-find "oxlint"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+							   (tools '(astro-ls eslint oxlint))
+							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
+						      (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
+						      (let* ((valid (expand-file-name "valid.astro" tmp-dir))
+							     (type-err (expand-file-name "type-error.astro" tmp-dir))
+							     (debugger-f (expand-file-name "debugger.astro" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,valid . "astro")
+									(,type-err . "astro")
+									(,debugger-f . "astro"))
+								      tmp-dir 30)))
+							(my-test--assert-file-diagnostics result valid '())
+							(my-test--assert-file-diagnostics
+							 result type-err '("2322" "6133") '("ts"))
+							(my-test--assert-file-diagnostics
+							 result debugger-f
+							 '("eslint(no-debugger)") '("oxc"))))))))
 
-  ;; --- Tailwind CSS tests ---
+;; --- Tailwind CSS tests ---
 
-  (ert-deftest ts-preset--live-tailwind ()
-    "Live: tailwindcss-language-server flags invalid directive and CSS conflict."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "tailwindcss-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-rass-tools
-                  '(tailwindcss-language-server))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-rass-tools nil)))
-            (my-test--setup-fixture-dir "tailwind" tmp-dir)
-            (let* ((tw-dir (expand-file-name "tw-project" tmp-dir))
-                   (invalid (expand-file-name "tw-invalid-directive.css" tmp-dir))
-                   (conflict (expand-file-name "css-conflict.astro" tw-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,invalid . "css")
-                              (,conflict . "astro"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics
-               result invalid
-               '("invalidTailwindDirective") '("tailwindcss"))
-              (my-test--assert-file-diagnostics
-               result conflict
-               '("cssConflict") '("tailwindcss"))))))))
+(ert-deftest ts-preset--live-tailwind ()
+  "Live: tailwindcss-language-server flags invalid directive and CSS conflict."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "tailwindcss-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-rass-tools
+							    '(tailwindcss-language-server))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-rass-tools nil)))
+						      (my-test--setup-fixture-dir "tailwind" tmp-dir)
+						      (let* ((tw-dir (expand-file-name "tw-project" tmp-dir))
+							     (invalid (expand-file-name "tw-invalid-directive.css" tmp-dir))
+							     (conflict (expand-file-name "css-conflict.astro" tw-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,invalid . "css")
+									(,conflict . "astro"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics
+							 result invalid
+							 '("invalidTailwindDirective") '("tailwindcss"))
+							(my-test--assert-file-diagnostics
+							 result conflict
+							 '("cssConflict") '("tailwindcss"))))))))
 
-  ;; --- TypeScript + tailwindcss ---
+;; --- TypeScript + tailwindcss ---
 
-  (ert-deftest ts-preset--live-ts-tailwind ()
-    "Live: typescript + tailwindcss-language-server together."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "typescript-language-server"))
-      (skip-unless (executable-find "tailwindcss-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-rass-tools
-                  '(typescript-language-server tailwindcss-language-server))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-rass-tools nil)))
-            (my-test--setup-fixture-dir "ts-tailwind" tmp-dir)
-            (let* ((invalid (expand-file-name
-                             "tw-invalid-directive.css" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,invalid . "css"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics
-               result invalid
-               '("invalidTailwindDirective") '("tailwindcss"))))))))
+(ert-deftest ts-preset--live-ts-tailwind ()
+  "Live: typescript + tailwindcss-language-server together."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (skip-unless (executable-find "tailwindcss-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-rass-tools
+							    '(typescript-language-server tailwindcss-language-server))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-rass-tools nil)))
+						      (my-test--setup-fixture-dir "ts-tailwind" tmp-dir)
+						      (let* ((invalid (expand-file-name
+								       "tw-invalid-directive.css" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,invalid . "css"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics
+							 result invalid
+							 '("invalidTailwindDirective") '("tailwindcss"))))))))
 
-  ;; --- CSS + tailwindcss ---
+;; --- CSS + tailwindcss ---
 
-  (ert-deftest ts-preset--live-css-tailwind ()
-    "Live: vscode-css + tailwindcss via rass flags invalid directive."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "vscode-css-language-server"))
-      (skip-unless (executable-find "tailwindcss-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-css-rass-tools
-                  '(vscode-css-language-server tailwindcss-language-server))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-css-rass-tools nil)))
-            (my-test--setup-fixture-dir "css-tailwind" tmp-dir)
-            (let* ((invalid (expand-file-name
-                             "tw-invalid-directive.css" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,invalid . "css"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics
-               result invalid
-               '("invalidTailwindDirective") '("tailwindcss"))))))))
+(ert-deftest ts-preset--live-css-tailwind ()
+  "Live: vscode-css + tailwindcss via rass flags invalid directive."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "vscode-css-language-server"))
+    (skip-unless (executable-find "tailwindcss-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-css-rass-tools
+							    '(vscode-css-language-server tailwindcss-language-server))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-css-rass-tools nil)))
+						      (my-test--setup-fixture-dir "css-tailwind" tmp-dir)
+						      (let* ((invalid (expand-file-name
+								       "tw-invalid-directive.css" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,invalid . "css"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics
+							 result invalid
+							 '("invalidTailwindDirective") '("tailwindcss"))))))))
 
-  ;; --- CSS only ---
+;; --- CSS only ---
 
-  (ert-deftest ts-preset--live-css-unknown-property ()
-    "Live: vscode-css via rass flags unknown CSS property."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "vscode-css-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-css-rass-tools
-                  '(vscode-css-language-server))
-                 (path (eglot-typescript-preset--rass-preset-path
-                        eglot-typescript-preset-css-rass-tools nil)))
-            (my-test--setup-fixture-dir "css" tmp-dir)
-            (let* ((css-file (expand-file-name
-                              "css-unknown-property.css" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,css-file . "css"))
-                            tmp-dir)))
-              (my-test--assert-file-diagnostics
-               result css-file
-               '("unknownProperties") '("css"))))))))
+(ert-deftest ts-preset--live-css-unknown-property ()
+  "Live: vscode-css via rass flags unknown CSS property."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "vscode-css-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-css-rass-tools
+							    '(vscode-css-language-server))
+							   (path (eglot-typescript-preset--rass-preset-path
+								  eglot-typescript-preset-css-rass-tools nil)))
+						      (my-test--setup-fixture-dir "css" tmp-dir)
+						      (let* ((css-file (expand-file-name
+									"css-unknown-property.css" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,css-file . "css"))
+								      tmp-dir)))
+							(my-test--assert-file-diagnostics
+							 result css-file
+							 '("unknownProperties") '("css"))))))))
 
-  ;; --- Vue + typescript ---
+;; --- Vue + typescript ---
 
-  (ert-deftest ts-preset--live-vue-typescript ()
-    "Live: vue-language-server + typescript-language-server on valid and type-error."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "vue-language-server"))
-      (skip-unless (executable-find "typescript-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-                 (tools '(vue-language-server typescript-language-server))
-                 (path (eglot-typescript-preset--rass-preset-path tools nil)))
-            (my-test--setup-fixture-dir "vue" tmp-dir)
-            (let* ((valid (expand-file-name "valid.vue" tmp-dir))
-                   (type-err (expand-file-name "type-error.vue" tmp-dir))
-                   (tmpl-err (expand-file-name "template-error.vue" tmp-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,valid . "vue")
-                              (,type-err . "vue")
-                              (,tmpl-err . "vue"))
-                            tmp-dir 30)))
-              (my-test--assert-file-diagnostics result valid '())
-              (my-test--assert-file-diagnostics
-               result type-err '("2322" "6133") '("typescript"))
-              (my-test--assert-file-diagnostics
-               result tmpl-err '("28") '("vue"))))))))
+(ert-deftest ts-preset--live-vue-typescript ()
+  "Live: vue-language-server + typescript-language-server on valid and type-error."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "vue-language-server"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+							   (tools '(vue-language-server typescript-language-server))
+							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
+						      (my-test--setup-fixture-dir "vue" tmp-dir)
+						      (let* ((valid (expand-file-name "valid.vue" tmp-dir))
+							     (type-err (expand-file-name "type-error.vue" tmp-dir))
+							     (tmpl-err (expand-file-name "template-error.vue" tmp-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,valid . "vue")
+									(,type-err . "vue")
+									(,tmpl-err . "vue"))
+								      tmp-dir 30)))
+							(my-test--assert-file-diagnostics result valid '())
+							(my-test--assert-file-diagnostics
+							 result type-err '("2322" "6133") '("typescript"))
+							(my-test--assert-file-diagnostics
+							 result tmpl-err '("28") '("vue"))))))))
 
-  ;; --- Vue + tailwindcss ---
+;; --- Vue + tailwindcss ---
 
-  (ert-deftest ts-preset--live-vue-tailwind ()
-    "Live: vue-language-server + tailwindcss on valid and CSS conflict."
-    (skip-unless (my-test--live-local-bins-available-p))
-    (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-      (skip-unless (executable-find "rass"))
-      (skip-unless (executable-find "vue-language-server"))
-      (skip-unless (executable-find "tailwindcss-language-server"))
-      (my-test-with-tmp-dir tmp-dir
-        (my-test-with-project-env tmp-dir
-          (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-                 (tools '(vue-language-server tailwindcss-language-server))
-                 (path (eglot-typescript-preset--rass-preset-path tools nil)))
-            (my-test--setup-fixture-dir "vue-tailwind" tmp-dir)
-            (let* ((valid (expand-file-name "valid.vue" tmp-dir))
-                   (tw-dir (expand-file-name "tw-project" tmp-dir))
-                   (conflict (expand-file-name "css-conflict.vue" tw-dir))
-                   (result (my-test--run-rass-session
-                            path
-                            `((,valid . "vue")
-                              (,conflict . "vue"))
-                            tmp-dir 30)))
-              (my-test--assert-file-diagnostics result valid '())
-              (my-test--assert-file-diagnostics
-               result conflict
-               '("cssConflict") '("tailwindcss"))))))))
-
-  ) ;; end of (when ... live tests)
+(ert-deftest ts-preset--live-vue-tailwind ()
+  "Live: vue-language-server + tailwindcss on valid and CSS conflict."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "vue-language-server"))
+    (skip-unless (executable-find "tailwindcss-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+			  (my-test-with-project-env tmp-dir
+						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+							   (tools '(vue-language-server tailwindcss-language-server))
+							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
+						      (my-test--setup-fixture-dir "vue-tailwind" tmp-dir)
+						      (let* ((valid (expand-file-name "valid.vue" tmp-dir))
+							     (tw-dir (expand-file-name "tw-project" tmp-dir))
+							     (conflict (expand-file-name "css-conflict.vue" tw-dir))
+							     (result (my-test--run-rass-session
+								      path
+								      `((,valid . "vue")
+									(,conflict . "vue"))
+								      tmp-dir 30)))
+							(my-test--assert-file-diagnostics result valid '())
+							(my-test--assert-file-diagnostics
+							 result conflict
+							 '("cssConflict") '("tailwindcss"))))))))
 
 (defun my-test-run-live-tests-parallel ()
   "Run all live tests in parallel child Emacs processes, then exit.
