@@ -234,9 +234,11 @@ Same format as `eglot-typescript-preset-rass-tools'."
 (defcustom eglot-typescript-preset-tsdk nil
   "Path to the TypeScript SDK `lib' directory.
 
-When non-nil, this is used for the Astro and Vue language servers'
-`typescript.tsdk' initialization option.  When nil, the package
-attempts to find it automatically via `npm root -g'."
+When non-nil, this is used as a fallback for the Astro and Vue
+language servers' `typescript.tsdk' initialization option.
+A project-local `node_modules/typescript/lib' always takes
+priority.  When both are nil, the package falls back to
+`npm root -g'."
   :type '(choice (const :tag "Auto-detect" nil)
                  (directory :tag "TypeScript SDK lib path"))
   :group 'eglot-typescript-preset)
@@ -339,9 +341,14 @@ Checks `eglot-typescript-preset-js-project-markers'."
 (defun eglot-typescript-preset--find-tsdk ()
   "Find the TypeScript SDK `lib' directory.
 
-If `eglot-typescript-preset-tsdk' is set, return that.
-Otherwise, try to find it via `npm root -g'."
-  (or eglot-typescript-preset-tsdk
+Project-local `node_modules/typescript/lib' takes highest priority.
+If `eglot-typescript-preset-tsdk' is set, use that as a fallback.
+As a last resort, try to find it via `npm root -g'."
+  (or (when-let* ((root (eglot-typescript-preset--project-root))
+                  (tsdk (expand-file-name "node_modules/typescript/lib" root))
+                  ((file-directory-p tsdk)))
+        tsdk)
+      eglot-typescript-preset-tsdk
       (when-let* ((npm (executable-find "npm"))
                   (global-root (string-trim
                                 (shell-command-to-string "npm root -g")))

@@ -267,6 +267,54 @@ the JS project boundary."
         (should (string= (eglot-typescript-preset--find-tsdk)
                          "/custom/typescript/lib"))))))
 
+(ert-deftest ts-preset--find-tsdk-project-local ()
+  "Return project-local tsdk from node_modules."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
+             (tsdk-dir (expand-file-name
+                        "node_modules/typescript/lib" project-dir))
+             (src-file (expand-file-name "index.ts" project-dir)))
+        (make-directory tsdk-dir t)
+        (with-temp-file (expand-file-name "package.json" project-dir)
+          (insert "{}"))
+        (with-temp-buffer
+          (setq buffer-file-name src-file)
+          (should (string= (eglot-typescript-preset--find-tsdk)
+                           tsdk-dir)))))))
+
+(ert-deftest ts-preset--find-tsdk-project-local-over-explicit ()
+  "Project-local tsdk takes precedence over explicit."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
+             (tsdk-dir (expand-file-name
+                        "node_modules/typescript/lib" project-dir))
+             (src-file (expand-file-name "index.ts" project-dir))
+             (eglot-typescript-preset-tsdk "/explicit/typescript/lib"))
+        (make-directory tsdk-dir t)
+        (with-temp-file (expand-file-name "package.json" project-dir)
+          (insert "{}"))
+        (with-temp-buffer
+          (setq buffer-file-name src-file)
+          (should (string= (eglot-typescript-preset--find-tsdk)
+                           tsdk-dir)))))))
+
+(ert-deftest ts-preset--find-tsdk-explicit-fallback ()
+  "Explicit tsdk used when no project-local typescript."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
+             (src-file (expand-file-name "index.ts" project-dir))
+             (eglot-typescript-preset-tsdk "/explicit/typescript/lib"))
+        (make-directory project-dir t)
+        (with-temp-file (expand-file-name "package.json" project-dir)
+          (insert "{}"))
+        (with-temp-buffer
+          (setq buffer-file-name src-file)
+          (should (string= (eglot-typescript-preset--find-tsdk)
+                           "/explicit/typescript/lib")))))))
+
 
 ;;; --- Executable resolution tests ---
 

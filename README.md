@@ -260,9 +260,15 @@ Same as above, but for Vue files:
 
 ### `eglot-typescript-preset-tsdk`
 
-Path to the TypeScript SDK `lib` directory. When nil (default), the package
-attempts to find it automatically via `npm root -g`. Used by both the Astro and
-Vue language servers:
+Fallback path to the TypeScript SDK `lib` directory, used by both the Astro and
+Vue language servers. The package resolves the SDK in this order:
+
+1. Project-local `node_modules/typescript/lib` (if it exists)
+2. This variable (when non-nil)
+3. Global `npm root -g`
+
+In most cases you can leave this nil and let project-local resolution handle it.
+Set it as a fallback for projects that don't install TypeScript locally:
 
 ```elisp
 (setopt eglot-typescript-preset-tsdk "/path/to/node_modules/typescript/lib")
@@ -401,5 +407,5 @@ project.
   `node_modules/.bin` and otherwise falls back to PATH. The same resolution is
   used for supported tools in generated `rass` presets.
 - The Astro and Vue language servers require a TypeScript SDK path. The package
-  tries to detect it via `npm root -g`, or you can set
-  `eglot-typescript-preset-tsdk` explicitly.
+  first checks for a project-local `node_modules/typescript/lib`, then falls
+  back to `eglot-typescript-preset-tsdk`, then `npm root -g`.
