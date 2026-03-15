@@ -1282,12 +1282,14 @@ the JS project boundary."
     (file-directory-p my-test-local-bin-dir))
 
   (defun my-test--run-rass-session (preset-path file-specs root-dir
-                                                &optional timeout)
+                                                &optional timeout min-events)
     "Run rass-live-client with multiple files and return parsed result.
 PRESET-PATH is the rass preset.  FILE-SPECS is a list of
 \(FILE-PATH . LANGUAGE-ID) cons cells.  ROOT-DIR is the workspace
-root.  TIMEOUT defaults to 20 seconds."
+root.  TIMEOUT defaults to 20 seconds.  MIN-EVENTS is the minimum
+publishDiagnostics events per file before settle starts (default 1)."
     (let* ((timeout (or timeout 20))
+           (min-events (or min-events 1))
            (file-args (mapconcat
                        (lambda (spec)
                          (format "%s:%s"
@@ -1295,12 +1297,14 @@ root.  TIMEOUT defaults to 20 seconds."
                                  (shell-quote-argument (cdr spec))))
                        file-specs " "))
            (output (shell-command-to-string
-                    (format "python3 %s %s %s --root %s --timeout %s"
-                            (shell-quote-argument my-test-live-rass-client)
-                            (shell-quote-argument preset-path)
-                            file-args
-                            (shell-quote-argument root-dir)
-                            timeout))))
+                    (format
+                     "python3 %s %s %s --root %s --timeout %s --min-events %s"
+                     (shell-quote-argument my-test-live-rass-client)
+                     (shell-quote-argument preset-path)
+                     file-args
+                     (shell-quote-argument root-dir)
+                     timeout
+                     min-events))))
       (json-parse-string output :object-type 'alist)))
 
   (defun my-test--session-file-result (session-result file-path)
