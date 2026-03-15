@@ -68,20 +68,26 @@ def request(proc, next_id, method, params):
     return next_id + 1
 
 
+def parse_file_arg(arg):
+    """Parse 'path:language-id' into (resolved_path, language_id)."""
+    if ":" not in arg:
+        raise ValueError(f"File argument must be 'path:language-id', got: {arg}")
+    path_str, lang_id = arg.rsplit(":", 1)
+    return Path(path_str).resolve(), lang_id
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("preset")
-    parser.add_argument("file")
+    parser.add_argument("files", nargs="+", help="file:language-id pairs")
     parser.add_argument("--server", default="rass")
-    parser.add_argument("--language-id", default="typescript")
     parser.add_argument("--root", default=None)
     parser.add_argument("--timeout", type=float, default=8.0)
     parser.add_argument("--stderr", action="store_true")
     args = parser.parse_args()
 
-    file_path = Path(args.file).resolve()
-    uri = file_path.as_uri()
-    root_path = Path(args.root).resolve() if args.root else file_path.parent
+    files = [parse_file_arg(f) for f in args.files]
+    root_path = Path(args.root).resolve() if args.root else files[0][0].parent
 
     proc = subprocess.Popen(
         [args.server, args.preset],
@@ -92,8 +98,10 @@ def main():
 
     next_id = 1
     workspace_sections = []
-    diagnostic_sources = []
-    diagnostic_codes = []
+    per_file = {}
+    for file_path, _ in files:
+        uri = file_path.as_uri()
+        per_file[uri] = {"diagnosticSources": [], "diagnosticCodes": []}
     initialized = False
     message_queue, reader_thread = start_message_reader(proc)
 
@@ -121,11 +129,10 @@ def main():
             },
         )
 
-        content = file_path.read_text(encoding="utf-8")
-        sent_open = False
         deadline = time.monotonic() + args.timeout
         last_message_at = time.monotonic()
         saw_diagnostics = False
+        files_opened = False
 
         while time.monotonic() < deadline:
             if proc.poll() is not None:
@@ -135,7 +142,7 @@ def main():
                 message_queue, max(0.0, deadline - time.monotonic())
             )
             if message is None:
-                if initialized and sent_open:
+                if initialized and files_opened:
                     idle = time.monotonic() - last_message_at
                     if saw_diagnostics and idle > 0.2:
                         break
@@ -149,22 +156,24 @@ def main():
             if "id" in message and message.get("id") == 1 and "result" in message:
                 initialized = True
                 send(proc, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
-                send(
-                    proc,
-                    {
-                        "jsonrpc": "2.0",
-                        "method": "textDocument/didOpen",
-                        "params": {
-                            "textDocument": {
-                                "uri": uri,
-                                "languageId": args.language_id,
-                                "version": 1,
-                                "text": content,
-                            }
+                for file_path, lang_id in files:
+                    content = file_path.read_text(encoding="utf-8")
+                    send(
+                        proc,
+                        {
+                            "jsonrpc": "2.0",
+                            "method": "textDocument/didOpen",
+                            "params": {
+                                "textDocument": {
+                                    "uri": file_path.as_uri(),
+                                    "languageId": lang_id,
+                                    "version": 1,
+                                    "text": content,
+                                }
+                            },
                         },
-                    },
-                )
-                sent_open = True
+                    )
+                files_opened = True
                 continue
 
             if method == "workspace/configuration":
@@ -187,13 +196,18 @@ def main():
                 "$/streamDiagnostics",
             ):
                 saw_diagnostics = True
-                for diagnostic in message.get("params", {}).get("diagnostics", []):
-                    source = diagnostic.get("source")
-                    code = diagnostic.get("code")
-                    if source is not None:
-                        diagnostic_sources.append(str(source))
-                    if code is not None:
-                        diagnostic_codes.append(str(code))
+                diag_uri = message.get("params", {}).get("uri", "")
+                entry = per_file.get(diag_uri)
+                if entry is not None:
+                    for diagnostic in message.get("params", {}).get(
+                        "diagnostics", []
+                    ):
+                        source = diagnostic.get("source")
+                        code = diagnostic.get("code")
+                        if source is not None:
+                            entry["diagnosticSources"].append(str(source))
+                        if code is not None:
+                            entry["diagnosticCodes"].append(str(code))
                 continue
 
         try:
@@ -224,8 +238,7 @@ def main():
     result = {
         "initialized": initialized,
         "workspaceConfigSections": workspace_sections,
-        "diagnosticSources": diagnostic_sources,
-        "diagnosticCodes": diagnostic_codes,
+        "files": {uri: data for uri, data in per_file.items()},
     }
 
     if args.stderr:
