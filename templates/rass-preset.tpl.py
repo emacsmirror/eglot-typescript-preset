@@ -7,9 +7,9 @@ from rassumfrassum.frassum import DirectResponse, LspLogic, Server
 from rassumfrassum.json import JSON
 from rassumfrassum.util import dmerge
 
-SERVERS = __SERVERS__
-INIT_OPTIONS = __INIT_OPTIONS__
-ESLINT_LOGIC = __ESLINT_LOGIC__
+SERVERS: list[list[str]] = __SERVERS__  # type: ignore[name-defined]
+INIT_OPTIONS: dict[str, Any] | None = __INIT_OPTIONS__  # type: ignore[name-defined]
+ESLINT_LOGIC: bool = __ESLINT_LOGIC__  # type: ignore[name-defined]
 
 
 def _server_kind(name: str) -> str | None:

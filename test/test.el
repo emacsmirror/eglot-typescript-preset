@@ -572,8 +572,8 @@ the JS project boundary."
                          (insert-file-contents path)
                          (buffer-string))))
           (should (string-match-p "SERVERS" content))
-          (should (string-match-p "INIT_OPTIONS = None" content))
-          (should (string-match-p "ESLINT_LOGIC = False" content)))))))
+          (should (string-match-p "INIT_OPTIONS: dict\\[str, Any\\] | None = None" content))
+          (should (string-match-p "ESLINT_LOGIC: bool = False" content)))))))
 
 (ert-deftest ts-preset--write-rass-preset-with-eslint ()
   "Write a rass preset with ESLint logic enabled."
@@ -592,7 +592,7 @@ the JS project boundary."
         (let ((content (with-temp-buffer
                          (insert-file-contents path)
                          (buffer-string))))
-          (should (string-match-p "ESLINT_LOGIC = True" content)))))))
+          (should (string-match-p "ESLINT_LOGIC: bool = True" content)))))))
 
 (ert-deftest ts-preset--write-rass-preset-with-astro ()
   "Write a rass preset with Astro init options."
@@ -612,7 +612,7 @@ the JS project boundary."
                          (insert-file-contents path)
                          (buffer-string))))
           (should (string-match-p "contentIntellisense" content))
-          (should (string-match-p "ESLINT_LOGIC = True" content)))))))
+          (should (string-match-p "ESLINT_LOGIC: bool = True" content)))))))
 
 (ert-deftest ts-preset--write-file-if-changed-no-rewrite ()
   "Do not rewrite file when content is identical."
