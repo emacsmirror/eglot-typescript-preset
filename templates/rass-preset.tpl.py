@@ -2,6 +2,7 @@
 
 import os
 from typing import Any, cast
+from urllib.parse import unquote
 
 from rassumfrassum.frassum import DirectResponse, LspLogic, Server
 from rassumfrassum.json import JSON
@@ -30,6 +31,8 @@ def _server_kind(name: str) -> str | None:
         return "oxfmt"
     if base == "oxlint":
         return "oxlint"
+    if base in ("svelteserver", "svelte-language-server"):
+        return "svelte-language-server"
     if base == "tailwindcss-language-server":
         return "tailwindcss-language-server"
     if base in ("typescript-language-server", "tsserver"):
@@ -107,6 +110,29 @@ class GeneratedTypeScriptLogic(LspLogic):
                 )
         super().process_request(method, params, server)
 
+    # Servers that percent-encode characters the client sends literally.
+    # svelteserver encodes ``+`` as ``%2B`` via vscode-uri; other servers
+    # either pass through the client URI or re-encode consistently.
+    _URI_FIXUP_SERVERS = frozenset({"svelte-language-server"})
+
+    @staticmethod
+    def _normalize_uri(uri: str) -> str:
+        """Decode percent-encoded file URIs for consistent keying.
+
+        svelteserver percent-encodes characters like ``+`` as ``%2B``
+        while the client (Eglot) sends them unencoded.  Decoding the
+        server's URI prevents diagnostic merging from treating them
+        as different documents.
+
+        Only applied for servers listed in ``_URI_FIXUP_SERVERS``.
+        """
+        if not uri.startswith("file://"):
+            return uri
+        decoded = unquote(uri)
+        if decoded != uri:
+            return decoded
+        return uri
+
     async def on_server_notification(
         self, method: str, params: JSON, source: Server
     ) -> None:
@@ -121,6 +147,14 @@ class GeneratedTypeScriptLogic(LspLogic):
                     source, "tsserver/response", [[req_id, None]]
                 )
             return
+        if (
+            method == "textDocument/publishDiagnostics"
+            and _server_kind(source.name) in self._URI_FIXUP_SERVERS
+        ):
+            uri = params.get("uri", "")
+            normalized = self._normalize_uri(uri)
+            if normalized != uri:
+                params["uri"] = normalized
         await super().on_server_notification(method, params, source)
 
     async def on_server_request(

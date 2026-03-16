@@ -34,6 +34,7 @@
     "@tailwindcss/language-server": "^0.14.29",
     "@vue/language-server": "^3.2.5",
     "eslint": "^9",
+    "svelte-language-server": "^0.17.23",
     "eslint-plugin-astro": "^1.6.0",
     "eslint-plugin-oxlint": "^1.55.0",
     "lefthook": "^2.0.13",

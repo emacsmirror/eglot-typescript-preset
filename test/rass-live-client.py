@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+from urllib.parse import unquote
 
 
 def send(proc, message):
@@ -68,6 +69,11 @@ def request(proc, next_id, method, params):
     return next_id + 1
 
 
+def path_to_raw_uri(p):
+    """Convert path to file URI without percent-encoding (like Eglot)."""
+    return "file://" + str(p)
+
+
 def parse_file_arg(arg):
     """Parse 'path:language-id' into (resolved_path, language_id)."""
     if ":" not in arg:
@@ -97,10 +103,17 @@ def main():
         help="minimum publishDiagnostics events per file before settle starts",
     )
     parser.add_argument("--stderr", action="store_true")
+    parser.add_argument(
+        "--raw-uri",
+        action="store_true",
+        dest="raw_uri",
+        help="send file URIs without percent-encoding (like Eglot)",
+    )
     args = parser.parse_args()
 
     files = [parse_file_arg(f) for f in args.files]
     root_path = Path(args.root).resolve() if args.root else files[0][0].parent
+    to_uri = path_to_raw_uri if args.raw_uri else Path.as_uri
 
     proc = subprocess.Popen(
         [args.server, args.preset],
@@ -116,7 +129,7 @@ def main():
     diag_event_count = {}
     all_file_uris = set()
     for file_path, _ in files:
-        uri = file_path.as_uri()
+        uri = to_uri(file_path)
         per_file[uri] = {"diagnosticSources": [], "diagnosticCodes": []}
         diag_event_count[uri] = 0
         all_file_uris.add(uri)
@@ -130,7 +143,7 @@ def main():
             "initialize",
             {
                 "processId": None,
-                "rootUri": root_path.as_uri(),
+                "rootUri": to_uri(root_path),
                 "capabilities": {
                     "workspace": {"configuration": True},
                     "textDocument": {
@@ -140,7 +153,7 @@ def main():
                 },
                 "workspaceFolders": [
                     {
-                        "uri": root_path.as_uri(),
+                        "uri": to_uri(root_path),
                         "name": root_path.name or "workspace",
                     }
                 ],
@@ -195,7 +208,7 @@ def main():
                             "method": "textDocument/didOpen",
                             "params": {
                                 "textDocument": {
-                                    "uri": file_path.as_uri(),
+                                    "uri": to_uri(file_path),
                                     "languageId": lang_id,
                                     "version": 1,
                                     "text": content,
@@ -226,6 +239,8 @@ def main():
                 "$/streamDiagnostics",
             ):
                 diag_uri = message.get("params", {}).get("uri", "")
+                if args.raw_uri:
+                    diag_uri = unquote(diag_uri)
                 entry = per_file.get(diag_uri)
                 if entry is not None:
                     files_with_diags.add(diag_uri)

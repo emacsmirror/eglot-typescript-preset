@@ -101,28 +101,34 @@ If TARGET-NAME is non-nil, rename the file."
         (eglot-typescript-preset-rass-command nil)
         (eglot-typescript-preset-astro-rass-command nil)
         (eglot-typescript-preset-rass-tools
-         '(typescript-language-server eslint))
+         '( typescript-language-server eslint))
         (eglot-typescript-preset-astro-rass-tools
-         '(astro-ls eslint))
+         '( astro-ls eslint))
         (eglot-typescript-preset-css-lsp-server 'rass)
         (eglot-typescript-preset-css-rass-command nil)
         (eglot-typescript-preset-css-rass-tools
-         '(vscode-css-language-server tailwindcss-language-server))
+         '( vscode-css-language-server tailwindcss-language-server))
         (eglot-typescript-preset-vue-lsp-server 'rass)
         (eglot-typescript-preset-vue-rass-command nil)
         (eglot-typescript-preset-vue-rass-tools
-         '(vue-language-server typescript-language-server
-           tailwindcss-language-server))
+         '( vue-language-server typescript-language-server
+            tailwindcss-language-server))
+        (eglot-typescript-preset-svelte-lsp-server 'rass)
+        (eglot-typescript-preset-svelte-rass-command nil)
+        (eglot-typescript-preset-svelte-rass-tools
+         '( svelte-language-server typescript-language-server
+            tailwindcss-language-server))
         (eglot-typescript-preset-rass-max-contextual-presets 50)
         (eglot-typescript-preset-tsdk nil)
         (eglot-typescript-preset-js-project-markers
          '("package.json" "tsconfig.json" "jsconfig.json"))
         (eglot-typescript-preset-js-modes
-         '(jtsx-jsx-mode jtsx-tsx-mode jtsx-typescript-mode
-           js-mode js-ts-mode typescript-ts-mode tsx-ts-mode))
+         '( jtsx-jsx-mode jtsx-tsx-mode jtsx-typescript-mode
+            js-mode js-ts-mode typescript-ts-mode tsx-ts-mode))
         (eglot-typescript-preset-astro-modes '(astro-ts-mode))
         (eglot-typescript-preset-css-modes '(css-mode css-ts-mode))
         (eglot-typescript-preset-vue-modes '(vue-mode vue-ts-mode))
+        (eglot-typescript-preset-svelte-modes '(svelte-mode svelte-ts-mode))
         (user-emacs-directory (file-name-as-directory tmp-dir)))
     (funcall fn)))
 
@@ -396,6 +402,12 @@ the JS project boundary."
   (should (eq (eglot-typescript-preset--tool-kind-from-name
                "vue-language-server")
               'vue-language-server))
+  (should (eq (eglot-typescript-preset--tool-kind-from-name
+               "svelteserver")
+              'svelte-language-server))
+  (should (eq (eglot-typescript-preset--tool-kind-from-name
+               "svelte-language-server")
+              'svelte-language-server))
   (should-not (eglot-typescript-preset--tool-kind-from-name "unknown-tool"))
   (should-not (eglot-typescript-preset--tool-kind-from-name nil)))
 
@@ -469,6 +481,14 @@ the JS project boundary."
                   'vue-language-server)))
         (should (equal (cadr cmd) "--stdio"))))))
 
+(ert-deftest ts-preset--rass-tool-command-svelte ()
+  "Generate svelte-language-server command."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((cmd (eglot-typescript-preset--rass-tool-command
+                  'svelte-language-server)))
+        (should (equal (cadr cmd) "--stdio"))))))
+
 (ert-deftest ts-preset--rass-tool-command-vector ()
   "Pass through vector commands with executable resolution."
   (my-test-with-tmp-dir tmp-dir
@@ -490,32 +510,35 @@ the JS project boundary."
 (ert-deftest ts-preset--rass-tool-label-symbols ()
   "Generate labels from tool symbols."
   (should (string= (eglot-typescript-preset--rass-tool-label
-                     'typescript-language-server)
-                    "typescript-language-server"))
+                    'typescript-language-server)
+                   "typescript-language-server"))
   (should (string= (eglot-typescript-preset--rass-tool-label 'eslint)
-                    "eslint"))
+                   "eslint"))
   (should (string= (eglot-typescript-preset--rass-tool-label 'biome)
-                    "biome"))
+                   "biome"))
   (should (string= (eglot-typescript-preset--rass-tool-label 'oxlint)
-                    "oxlint"))
+                   "oxlint"))
   (should (string= (eglot-typescript-preset--rass-tool-label 'oxfmt)
-                    "oxfmt"))
+                   "oxfmt"))
   (should (string= (eglot-typescript-preset--rass-tool-label 'astro-ls)
-                    "astro-ls"))
+                   "astro-ls"))
   (should (string= (eglot-typescript-preset--rass-tool-label
-                     'tailwindcss-language-server)
-                    "tailwindcss-language-server"))
+                    'tailwindcss-language-server)
+                   "tailwindcss-language-server"))
   (should (string= (eglot-typescript-preset--rass-tool-label
-                     'vscode-css-language-server)
-                    "vscode-css-language-server"))
+                    'vscode-css-language-server)
+                   "vscode-css-language-server"))
   (should (string= (eglot-typescript-preset--rass-tool-label
-                     'vue-language-server)
-                    "vue-language-server")))
+                    'vue-language-server)
+                   "vue-language-server"))
+  (should (string= (eglot-typescript-preset--rass-tool-label
+                    'svelte-language-server)
+                   "svelte-language-server")))
 
 (ert-deftest ts-preset--rass-tool-label-vector-single ()
   "Generate label from single-element vector."
   (should (string= (eglot-typescript-preset--rass-tool-label ["biome"])
-                    "biome")))
+                   "biome")))
 
 (ert-deftest ts-preset--rass-tool-label-vector-multi ()
   "Generate hash-based label from multi-element vector."
@@ -531,9 +554,9 @@ the JS project boundary."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let ((path1 (eglot-typescript-preset--rass-shared-preset-path
-                     '(typescript-language-server eslint)))
+                    '(typescript-language-server eslint)))
             (path2 (eglot-typescript-preset--rass-shared-preset-path
-                     '(typescript-language-server eslint))))
+                    '(typescript-language-server eslint))))
         (should (string= path1 path2))
         (should (string-match-p "rass-preset-shared-" path1))
         (should (string-match-p "\\.py\\'" path1))))))
@@ -543,9 +566,9 @@ the JS project boundary."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let ((path1 (eglot-typescript-preset--rass-shared-preset-path
-                     '(typescript-language-server eslint)))
+                    '(typescript-language-server eslint)))
             (path2 (eglot-typescript-preset--rass-shared-preset-path
-                     '(typescript-language-server biome))))
+                    '(typescript-language-server biome))))
         (should-not (string= path1 path2))))))
 
 (ert-deftest ts-preset--rass-contextual-preset-path ()
@@ -565,8 +588,8 @@ the JS project boundary."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let ((path (expand-file-name "test-preset.py"
-                                     (expand-file-name
-                                      "eglot-typescript-preset/" tmp-dir))))
+                                    (expand-file-name
+                                     "eglot-typescript-preset/" tmp-dir))))
         (make-directory (file-name-directory path) t)
         (eglot-typescript-preset--write-rass-preset
          path
@@ -588,8 +611,8 @@ the JS project boundary."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let ((path (expand-file-name "test-eslint.py"
-                                     (expand-file-name
-                                      "eglot-typescript-preset/" tmp-dir))))
+                                    (expand-file-name
+                                     "eglot-typescript-preset/" tmp-dir))))
         (make-directory (file-name-directory path) t)
         (eglot-typescript-preset--write-rass-preset
          path
@@ -608,8 +631,8 @@ the JS project boundary."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let ((path (expand-file-name "test-astro.py"
-                                     (expand-file-name
-                                      "eglot-typescript-preset/" tmp-dir))))
+                                    (expand-file-name
+                                     "eglot-typescript-preset/" tmp-dir))))
         (make-directory (file-name-directory path) t)
         (eglot-typescript-preset--write-rass-preset
          path
@@ -1057,6 +1080,59 @@ the JS project boundary."
                         t))))))))
 
 
+;;; --- Svelte server contact tests ---
+
+(ert-deftest ts-preset--svelte-server-contact-basic ()
+  "Svelte server contact returns svelte-language-server with init options."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-svelte-lsp-server 'svelte-language-server)
+            (eglot-typescript-preset-tsdk "/fake/tsdk"))
+        (let ((contact (eglot-typescript-preset--svelte-server-contact nil)))
+          (should (listp contact))
+          (should (string-match-p "svelteserver" (car contact)))
+          (should (member :initializationOptions contact)))))))
+
+(ert-deftest ts-preset--svelte-server-contact-rass ()
+  "Svelte server contact returns rass command when configured."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-tsdk "/fake/tsdk"))
+        (let ((contact (eglot-typescript-preset--svelte-server-contact nil)))
+          (should (listp contact))
+          (should (string-match-p "rass" (car contact))))))))
+
+(ert-deftest ts-preset--svelte-server-contact-rass-command ()
+  "Svelte server contact uses rass-command verbatim."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-svelte-rass-command
+             ["rass" "sveltetail"]))
+        (let ((contact (eglot-typescript-preset--svelte-server-contact nil)))
+          (should (equal contact '("rass" "sveltetail"))))))))
+
+(ert-deftest ts-preset--svelte-init-options-with-tsdk ()
+  "Svelte init options include tsdk when set."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-tsdk "/my/typescript/lib"))
+        (let ((opts (eglot-typescript-preset--svelte-init-options)))
+          (should (equal
+                   (plist-get
+                    (plist-get (plist-get opts :configuration) :typescript)
+                    :tsdk)
+                   "/my/typescript/lib")))))))
+
+(ert-deftest ts-preset--svelte-init-options-without-tsdk ()
+  "Svelte init options return nil when tsdk not available."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-tsdk nil))
+        (cl-letf (((symbol-function 'executable-find)
+                   (lambda (_name) nil)))
+          (should-not (eglot-typescript-preset--svelte-init-options)))))))
+
+
 ;;; --- Setup tests ---
 
 (ert-deftest ts-preset--setup-adds-server-programs ()
@@ -1066,7 +1142,7 @@ the JS project boundary."
       (let ((eglot-server-programs nil)
             (project-find-functions nil))
         (eglot-typescript-preset-setup)
-        (should (>= (length eglot-server-programs) 4))
+        (should (>= (length eglot-server-programs) 5))
         (should (member #'eglot-typescript-preset--project-find
                         project-find-functions))))))
 
@@ -1078,7 +1154,7 @@ the JS project boundary."
             (project-find-functions nil)
             (eglot-typescript-preset-astro-lsp-server nil))
         (eglot-typescript-preset-setup)
-        (should (= (length eglot-server-programs) 3))))))
+        (should (= (length eglot-server-programs) 4))))))
 
 (ert-deftest ts-preset--setup-skips-css-when-disabled ()
   "Setup skips CSS when css-lsp-server is nil."
@@ -1088,7 +1164,7 @@ the JS project boundary."
             (project-find-functions nil)
             (eglot-typescript-preset-css-lsp-server nil))
         (eglot-typescript-preset-setup)
-        (should (= (length eglot-server-programs) 3))))))
+        (should (= (length eglot-server-programs) 4))))))
 
 (ert-deftest ts-preset--setup-skips-vue-when-disabled ()
   "Setup skips Vue when vue-lsp-server is nil."
@@ -1098,7 +1174,17 @@ the JS project boundary."
             (project-find-functions nil)
             (eglot-typescript-preset-vue-lsp-server nil))
         (eglot-typescript-preset-setup)
-        (should (= (length eglot-server-programs) 3))))))
+        (should (= (length eglot-server-programs) 4))))))
+
+(ert-deftest ts-preset--setup-skips-svelte-when-disabled ()
+  "Setup skips Svelte when svelte-lsp-server is nil."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-server-programs nil)
+            (project-find-functions nil)
+            (eglot-typescript-preset-svelte-lsp-server nil))
+        (eglot-typescript-preset-setup)
+        (should (= (length eglot-server-programs) 4))))))
 
 
 ;;; --- Workspace configuration advice ---
@@ -1125,6 +1211,19 @@ the JS project boundary."
   "Workspace config advice appends TypeScript validation for Vue buffers."
   (with-temp-buffer
     (setq major-mode 'vue-mode)
+    (let ((buf (current-buffer))
+          (server 'mock-server))
+      (cl-letf (((symbol-function 'eglot--managed-buffers)
+                 (lambda (_s) (list buf))))
+        (let ((result (eglot-typescript-preset--workspace-configuration-plist-a
+                       (lambda (_s &optional _p) nil)
+                       server)))
+          (should (plist-get result :typescript)))))))
+
+(ert-deftest ts-preset--workspace-config-svelte-appends-typescript ()
+  "Workspace config advice appends TypeScript validation for Svelte buffers."
+  (with-temp-buffer
+    (setq major-mode 'svelte-mode)
     (let ((buf (current-buffer))
           (server 'mock-server))
       (cl-letf (((symbol-function 'eglot--managed-buffers)
@@ -1245,6 +1344,15 @@ the JS project boundary."
   (should-not (eglot-typescript-preset--vue-lsp-server-safe-p
                "vue-language-server")))
 
+(ert-deftest ts-preset--svelte-lsp-server-safe-local-variable ()
+  (should (eglot-typescript-preset--svelte-lsp-server-safe-p
+           'svelte-language-server))
+  (should (eglot-typescript-preset--svelte-lsp-server-safe-p 'rass))
+  (should (eglot-typescript-preset--svelte-lsp-server-safe-p nil))
+  (should-not (eglot-typescript-preset--svelte-lsp-server-safe-p 'unknown))
+  (should-not (eglot-typescript-preset--svelte-lsp-server-safe-p
+               "svelte-language-server")))
+
 (ert-deftest ts-preset--rass-tools-safe-local-variable ()
   (should (eglot-typescript-preset--rass-tools-safe-p
            '(typescript-language-server eslint)))
@@ -1256,6 +1364,8 @@ the JS project boundary."
            '(vscode-css-language-server tailwindcss-language-server)))
   (should (eglot-typescript-preset--rass-tools-safe-p
            '(vue-language-server tailwindcss-language-server)))
+  (should (eglot-typescript-preset--rass-tools-safe-p
+           '(svelte-language-server tailwindcss-language-server)))
   (should (eglot-typescript-preset--rass-tools-safe-p '()))
   (should-not (eglot-typescript-preset--rass-tools-safe-p
                '(typescript-language-server ["biome" "lsp-proxy"])))
@@ -1284,12 +1394,14 @@ the JS project boundary."
   (file-directory-p my-test-local-bin-dir))
 
 (defun my-test--run-rass-session (preset-path file-specs root-dir
-                                              &optional timeout min-events)
+                                              &optional timeout min-events
+                                              extra-args)
   "Run rass-live-client with multiple files and return parsed result.
 PRESET-PATH is the rass preset.  FILE-SPECS is a list of
 \(FILE-PATH . LANGUAGE-ID) cons cells.  ROOT-DIR is the workspace
 root.  TIMEOUT defaults to 20 seconds.  MIN-EVENTS is the minimum
-publishDiagnostics events per file before settle starts (default 1)."
+publishDiagnostics events per file before settle starts (default 1).
+EXTRA-ARGS is an optional string appended to the command."
   (let* ((timeout (or timeout 20))
          (min-events (or min-events 1))
          (file-args (mapconcat
@@ -1300,13 +1412,14 @@ publishDiagnostics events per file before settle starts (default 1)."
                      file-specs " "))
          (output (shell-command-to-string
                   (format
-                   "python3 %s %s %s --root %s --timeout %s --min-events %s"
+                   "python3 %s %s %s --root %s --timeout %s --min-events %s%s"
                    (shell-quote-argument my-test-live-rass-client)
                    (shell-quote-argument preset-path)
                    file-args
                    (shell-quote-argument root-dir)
                    timeout
-                   min-events))))
+                   min-events
+                   (if extra-args (concat " " extra-args) "")))))
     (json-parse-string output :object-type 'alist)))
 
 (defun my-test--session-file-result (session-result file-path)
@@ -1360,22 +1473,22 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "typescript-language-server"))
     (skip-unless (executable-find "vscode-eslint-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-rass-tools
-							    '(typescript-language-server eslint))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-rass-tools nil)))
-						      (my-test--setup-fixture-dir "eslint" tmp-dir t)
-						      (let* ((valid (expand-file-name "valid.ts" tmp-dir))
-							     (debugger-f (expand-file-name "debugger.ts" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,valid . "typescript")
-									(,debugger-f . "typescript"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics result valid '())
-							(my-test--assert-file-diagnostics
-							 result debugger-f '("no-debugger") '("eslint"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-rass-tools
+		'(typescript-language-server eslint))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-rass-tools nil)))
+	  (my-test--setup-fixture-dir "eslint" tmp-dir t)
+	  (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+		 (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "typescript")
+			    (,debugger-f . "typescript"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result debugger-f '("no-debugger") '("eslint"))))))))
 
 ;; --- TypeScript + biome ---
 
@@ -1388,23 +1501,23 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "typescript-language-server"))
     (skip-unless (executable-find "biome"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-rass-tools
-							    '(typescript-language-server biome))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-rass-tools nil)))
-						      (my-test--setup-fixture-dir "biome" tmp-dir)
-						      (let* ((valid (expand-file-name "valid.ts" tmp-dir))
-							     (debugger-f (expand-file-name "debugger.ts" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,valid . "typescript")
-									(,debugger-f . "typescript"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics result valid '())
-							(my-test--assert-file-diagnostics
-							 result debugger-f
-							 '("lint/suspicious/noDebugger") '("biome"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-rass-tools
+		'(typescript-language-server biome))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-rass-tools nil)))
+	  (my-test--setup-fixture-dir "biome" tmp-dir)
+	  (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+		 (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "typescript")
+			    (,debugger-f . "typescript"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result debugger-f
+	     '("lint/suspicious/noDebugger") '("biome"))))))))
 
 ;; --- TypeScript + oxlint ---
 
@@ -1417,24 +1530,24 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "typescript-language-server"))
     (skip-unless (executable-find "oxlint"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-rass-tools
-							    '(typescript-language-server oxlint))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-rass-tools nil)))
-						      (my-test--setup-fixture-dir "oxlint" tmp-dir)
-						      (let* ((debugger-f (expand-file-name "debugger.ts" tmp-dir))
-							     (type-err (expand-file-name "type-error.ts" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,debugger-f . "typescript")
-									(,type-err . "typescript"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics
-							 result debugger-f '("eslint(no-debugger)") '("oxc"))
-							(my-test--assert-file-diagnostics
-							 result type-err
-							 '("2322" "eslint(no-unused-vars)") '("oxc" "typescript"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-rass-tools
+		'(typescript-language-server oxlint))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-rass-tools nil)))
+	  (my-test--setup-fixture-dir "oxlint" tmp-dir)
+	  (let* ((debugger-f (expand-file-name "debugger.ts" tmp-dir))
+		 (type-err (expand-file-name "type-error.ts" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,debugger-f . "typescript")
+			    (,type-err . "typescript"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics
+	     result debugger-f '("eslint(no-debugger)") '("oxc"))
+	    (my-test--assert-file-diagnostics
+	     result type-err
+	     '("2322" "eslint(no-unused-vars)") '("oxc" "typescript"))))))))
 
 ;; --- TypeScript + eslint + oxlint ---
 
@@ -1448,23 +1561,23 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "vscode-eslint-language-server"))
     (skip-unless (executable-find "oxlint"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-rass-tools
-							    '(typescript-language-server eslint oxlint))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-rass-tools nil)))
-						      (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
-						      (let* ((valid (expand-file-name "valid.ts" tmp-dir))
-							     (debugger-f (expand-file-name "debugger.ts" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,valid . "typescript")
-									(,debugger-f . "typescript"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics result valid '())
-							(my-test--assert-file-diagnostics
-							 result debugger-f
-							 '("eslint(no-debugger)") '("oxc"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-rass-tools
+		'(typescript-language-server eslint oxlint))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-rass-tools nil)))
+	  (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
+	  (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+		 (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "typescript")
+			    (,debugger-f . "typescript"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result debugger-f
+	     '("eslint(no-debugger)") '("oxc"))))))))
 
 ;; --- Astro + eslint ---
 
@@ -1477,18 +1590,18 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "astro-ls"))
     (skip-unless (executable-find "vscode-eslint-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-							   (tools '(astro-ls eslint))
-							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
-						      (my-test--setup-fixture-dir "eslint" tmp-dir t)
-						      (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,debugger-f . "astro"))
-								      tmp-dir 30)))
-							(my-test--assert-file-diagnostics
-							 result debugger-f '("no-debugger") '("eslint"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(astro-ls eslint))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "eslint" tmp-dir t)
+	  (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,debugger-f . "astro"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics
+	     result debugger-f '("no-debugger") '("eslint"))))))))
 
 ;; --- Astro + oxlint ---
 
@@ -1501,19 +1614,19 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "astro-ls"))
     (skip-unless (executable-find "oxlint"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-							   (tools '(astro-ls oxlint))
-							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
-						      (my-test--setup-fixture-dir "oxlint" tmp-dir)
-						      (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,debugger-f . "astro"))
-								      tmp-dir 30)))
-							(my-test--assert-file-diagnostics
-							 result debugger-f
-							 '("eslint(no-debugger)") '("oxc"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(astro-ls oxlint))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "oxlint" tmp-dir)
+	  (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,debugger-f . "astro"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics
+	     result debugger-f
+	     '("eslint(no-debugger)") '("oxc"))))))))
 
 ;; --- Astro + eslint + oxlint ---
 
@@ -1527,26 +1640,26 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "vscode-eslint-language-server"))
     (skip-unless (executable-find "oxlint"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-							   (tools '(astro-ls eslint oxlint))
-							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
-						      (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
-						      (let* ((valid (expand-file-name "valid.astro" tmp-dir))
-							     (type-err (expand-file-name "type-error.astro" tmp-dir))
-							     (debugger-f (expand-file-name "debugger.astro" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,valid . "astro")
-									(,type-err . "astro")
-									(,debugger-f . "astro"))
-								      tmp-dir 30)))
-							(my-test--assert-file-diagnostics result valid '())
-							(my-test--assert-file-diagnostics
-							 result type-err '("2322" "6133") '("ts"))
-							(my-test--assert-file-diagnostics
-							 result debugger-f
-							 '("eslint(no-debugger)") '("oxc"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(astro-ls eslint oxlint))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
+	  (let* ((valid (expand-file-name "valid.astro" tmp-dir))
+		 (type-err (expand-file-name "type-error.astro" tmp-dir))
+		 (debugger-f (expand-file-name "debugger.astro" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "astro")
+			    (,type-err . "astro")
+			    (,debugger-f . "astro"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result type-err '("2322" "6133") '("ts"))
+	    (my-test--assert-file-diagnostics
+	     result debugger-f
+	     '("eslint(no-debugger)") '("oxc"))))))))
 
 ;; --- Tailwind CSS tests ---
 
@@ -1558,26 +1671,26 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "rass"))
     (skip-unless (executable-find "tailwindcss-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-rass-tools
-							    '(tailwindcss-language-server))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-rass-tools nil)))
-						      (my-test--setup-fixture-dir "tailwind" tmp-dir)
-						      (let* ((tw-dir (expand-file-name "tw-project" tmp-dir))
-							     (invalid (expand-file-name "tw-invalid-directive.css" tmp-dir))
-							     (conflict (expand-file-name "css-conflict.astro" tw-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,invalid . "css")
-									(,conflict . "astro"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics
-							 result invalid
-							 '("invalidTailwindDirective") '("tailwindcss"))
-							(my-test--assert-file-diagnostics
-							 result conflict
-							 '("cssConflict") '("tailwindcss"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-rass-tools
+		'(tailwindcss-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-rass-tools nil)))
+	  (my-test--setup-fixture-dir "tailwind" tmp-dir)
+	  (let* ((tw-dir (expand-file-name "tw-project" tmp-dir))
+		 (invalid (expand-file-name "tw-invalid-directive.css" tmp-dir))
+		 (conflict (expand-file-name "css-conflict.astro" tw-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,invalid . "css")
+			    (,conflict . "astro"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics
+	     result invalid
+	     '("invalidTailwindDirective") '("tailwindcss"))
+	    (my-test--assert-file-diagnostics
+	     result conflict
+	     '("cssConflict") '("tailwindcss"))))))))
 
 ;; --- TypeScript + tailwindcss ---
 
@@ -1590,21 +1703,21 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "typescript-language-server"))
     (skip-unless (executable-find "tailwindcss-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-rass-tools
-							    '(typescript-language-server tailwindcss-language-server))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-rass-tools nil)))
-						      (my-test--setup-fixture-dir "ts-tailwind" tmp-dir)
-						      (let* ((invalid (expand-file-name
-								       "tw-invalid-directive.css" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,invalid . "css"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics
-							 result invalid
-							 '("invalidTailwindDirective") '("tailwindcss"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-rass-tools
+		'(typescript-language-server tailwindcss-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-rass-tools nil)))
+	  (my-test--setup-fixture-dir "ts-tailwind" tmp-dir)
+	  (let* ((invalid (expand-file-name
+			   "tw-invalid-directive.css" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,invalid . "css"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics
+	     result invalid
+	     '("invalidTailwindDirective") '("tailwindcss"))))))))
 
 ;; --- CSS + tailwindcss ---
 
@@ -1617,21 +1730,21 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "vscode-css-language-server"))
     (skip-unless (executable-find "tailwindcss-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-css-rass-tools
-							    '(vscode-css-language-server tailwindcss-language-server))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-css-rass-tools nil)))
-						      (my-test--setup-fixture-dir "css-tailwind" tmp-dir)
-						      (let* ((invalid (expand-file-name
-								       "tw-invalid-directive.css" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,invalid . "css"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics
-							 result invalid
-							 '("invalidTailwindDirective") '("tailwindcss"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-css-rass-tools
+		'(vscode-css-language-server tailwindcss-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-css-rass-tools nil)))
+	  (my-test--setup-fixture-dir "css-tailwind" tmp-dir)
+	  (let* ((invalid (expand-file-name
+			   "tw-invalid-directive.css" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,invalid . "css"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics
+	     result invalid
+	     '("invalidTailwindDirective") '("tailwindcss"))))))))
 
 ;; --- CSS only ---
 
@@ -1643,21 +1756,21 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "rass"))
     (skip-unless (executable-find "vscode-css-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-css-rass-tools
-							    '(vscode-css-language-server))
-							   (path (eglot-typescript-preset--rass-preset-path
-								  eglot-typescript-preset-css-rass-tools nil)))
-						      (my-test--setup-fixture-dir "css" tmp-dir)
-						      (let* ((css-file (expand-file-name
-									"css-unknown-property.css" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,css-file . "css"))
-								      tmp-dir)))
-							(my-test--assert-file-diagnostics
-							 result css-file
-							 '("unknownProperties") '("css"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-css-rass-tools
+		'(vscode-css-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path
+		      eglot-typescript-preset-css-rass-tools nil)))
+	  (my-test--setup-fixture-dir "css" tmp-dir)
+	  (let* ((css-file (expand-file-name
+			    "css-unknown-property.css" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,css-file . "css"))
+			  tmp-dir)))
+	    (my-test--assert-file-diagnostics
+	     result css-file
+	     '("unknownProperties") '("css"))))))))
 
 ;; --- Vue + typescript ---
 
@@ -1670,25 +1783,25 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "vue-language-server"))
     (skip-unless (executable-find "typescript-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-							   (tools '(vue-language-server typescript-language-server))
-							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
-						      (my-test--setup-fixture-dir "vue" tmp-dir)
-						      (let* ((valid (expand-file-name "valid.vue" tmp-dir))
-							     (type-err (expand-file-name "type-error.vue" tmp-dir))
-							     (tmpl-err (expand-file-name "template-error.vue" tmp-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,valid . "vue")
-									(,type-err . "vue")
-									(,tmpl-err . "vue"))
-								      tmp-dir 30)))
-							(my-test--assert-file-diagnostics result valid '())
-							(my-test--assert-file-diagnostics
-							 result type-err '("2322" "6133") '("typescript"))
-							(my-test--assert-file-diagnostics
-							 result tmpl-err '("28") '("vue"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(vue-language-server typescript-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "vue" tmp-dir)
+	  (let* ((valid (expand-file-name "valid.vue" tmp-dir))
+		 (type-err (expand-file-name "type-error.vue" tmp-dir))
+		 (tmpl-err (expand-file-name "template-error.vue" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "vue")
+			    (,type-err . "vue")
+			    (,tmpl-err . "vue"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result type-err '("2322" "6133") '("typescript"))
+	    (my-test--assert-file-diagnostics
+	     result tmpl-err '("28") '("vue"))))))))
 
 ;; --- Vue + tailwindcss ---
 
@@ -1701,23 +1814,115 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
     (skip-unless (executable-find "vue-language-server"))
     (skip-unless (executable-find "tailwindcss-language-server"))
     (my-test-with-tmp-dir tmp-dir
-			  (my-test-with-project-env tmp-dir
-						    (let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-							   (tools '(vue-language-server tailwindcss-language-server))
-							   (path (eglot-typescript-preset--rass-preset-path tools nil)))
-						      (my-test--setup-fixture-dir "vue-tailwind" tmp-dir)
-						      (let* ((valid (expand-file-name "valid.vue" tmp-dir))
-							     (tw-dir (expand-file-name "tw-project" tmp-dir))
-							     (conflict (expand-file-name "css-conflict.vue" tw-dir))
-							     (result (my-test--run-rass-session
-								      path
-								      `((,valid . "vue")
-									(,conflict . "vue"))
-								      tmp-dir 30)))
-							(my-test--assert-file-diagnostics result valid '())
-							(my-test--assert-file-diagnostics
-							 result conflict
-							 '("cssConflict") '("tailwindcss"))))))))
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(vue-language-server tailwindcss-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "vue-tailwind" tmp-dir)
+	  (let* ((valid (expand-file-name "valid.vue" tmp-dir))
+		 (tw-dir (expand-file-name "tw-project" tmp-dir))
+		 (conflict (expand-file-name "css-conflict.vue" tw-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "vue")
+			    (,conflict . "vue"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result conflict
+	     '("cssConflict") '("tailwindcss"))))))))
+
+;; --- Svelte + typescript ---
+
+(ert-deftest ts-preset--live-svelte-typescript ()
+  "Live: svelteserver + typescript-language-server on valid, type-error, and a11y."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "svelteserver"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(svelte-language-server typescript-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "svelte" tmp-dir)
+	  (let* ((valid (expand-file-name "valid.svelte" tmp-dir))
+		 (type-err (expand-file-name "type-error.svelte" tmp-dir))
+		 (a11y-err (expand-file-name "a11y-error.svelte" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "svelte")
+			    (,type-err . "svelte")
+			    (,a11y-err . "svelte"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result type-err '("2322") '("ts"))
+	    (my-test--assert-file-diagnostics
+	     result a11y-err
+	     '("a11y-missing-attribute") '("svelte"))))))))
+
+;; --- Svelte + tailwindcss ---
+
+(ert-deftest ts-preset--live-svelte-tailwind ()
+  "Live: svelteserver + tailwindcss on valid, CSS conflict, and a11y+tw conflict."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "svelteserver"))
+    (skip-unless (executable-find "tailwindcss-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(svelte-language-server tailwindcss-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "svelte-tailwind" tmp-dir)
+	  (let* ((valid (expand-file-name "valid.svelte" tmp-dir))
+		 (tw-dir (expand-file-name "tw-project" tmp-dir))
+		 (conflict (expand-file-name "css-conflict.svelte" tw-dir))
+		 (a11y-tw (expand-file-name "a11y-tw-conflict.svelte" tw-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,valid . "svelte")
+			    (,conflict . "svelte")
+			    (,a11y-tw . "svelte"))
+			  tmp-dir 30)))
+	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result conflict
+	     '("cssConflict") '("tailwindcss"))
+	    (my-test--assert-file-diagnostics
+	     result a11y-tw
+	     '("a11y-missing-attribute" "cssConflict")
+	     '("svelte" "tailwindcss"))))))))
+
+
+;; --- Svelte URI normalization (+ in filename) ---
+
+(ert-deftest ts-preset--live-svelte-uri-normalization ()
+  "Live: svelteserver normalizes percent-encoded URIs for + filenames."
+  (skip-unless (my-test-live-tests-enabled-p))
+  (skip-unless (my-test--live-local-bins-available-p))
+  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
+    (skip-unless (executable-find "rass"))
+    (skip-unless (executable-find "svelteserver"))
+    (skip-unless (executable-find "typescript-language-server"))
+    (my-test-with-tmp-dir tmp-dir
+      (my-test-with-project-env tmp-dir
+	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
+	       (tools '(svelte-language-server typescript-language-server))
+	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
+	  (my-test--setup-fixture-dir "svelte" tmp-dir)
+	  (let* ((plus-err (expand-file-name "+type-error.svelte" tmp-dir))
+		 (result (my-test--run-rass-session
+			  path
+			  `((,plus-err . "svelte"))
+			  tmp-dir 30 1 "--raw-uri")))
+	    (my-test--assert-file-diagnostics
+	     result plus-err '("2322") '("ts"))))))))
 
 (defun my-test-run-live-tests-parallel ()
   "Run all live tests in parallel child Emacs processes, then exit.

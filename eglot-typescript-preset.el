@@ -28,14 +28,15 @@
 ;;; Commentary:
 
 ;; This package provides a preset for Eglot to work with TypeScript,
-;; JavaScript, CSS, Astro, and Vue files.  It configures LSP servers and
-;; optional linter/formatter integration via rassumfrassum (rass).
+;; JavaScript, CSS, Astro, Vue, and Svelte files.  It configures LSP servers
+;; and optional linter/formatter integration via rassumfrassum (rass).
 
 ;; Prerequisites:
 ;;
 ;; - Install typescript-language-server or deno (for TS/JS files)
 ;; - Install @astrojs/language-server (for Astro files, optional)
 ;; - Install @vue/language-server (for Vue files, optional)
+;; - Install svelte-language-server (for Svelte files, optional)
 ;; - Optionally install eslint-language-server, biome, oxlint, or oxfmt
 ;; - Download this file and add it to the load path
 
@@ -44,8 +45,8 @@
 ;;   (require 'eglot-typescript-preset)
 ;;   (eglot-typescript-preset-setup)
 ;;
-;; After that, opening TypeScript, JavaScript, CSS, Astro, or Vue files
-;; will automatically start the LSP server using Eglot.
+;; After that, opening TypeScript, JavaScript, CSS, Astro, Vue, or Svelte
+;; files will automatically start the LSP server using Eglot.
 
 ;;; Code:
 
@@ -140,6 +141,27 @@ When non-nil, this command is used verbatim and no generated preset is written."
   :group 'eglot-typescript-preset)
 
 ;;;###autoload
+(defcustom eglot-typescript-preset-svelte-lsp-server 'rass
+  "LSP server to use for Svelte files."
+  :type '(choice (const :tag "svelte-language-server" svelte-language-server)
+                 (const :tag "rass" rass)
+                 (const :tag "Disabled" nil))
+  :group 'eglot-typescript-preset)
+
+;;;###autoload
+(defcustom eglot-typescript-preset-svelte-rass-command nil
+  "Exact command vector to run for Svelte when using `rass'.
+
+When non-nil, this command is used verbatim and no generated preset is written."
+  :type '(choice
+          (const :tag "Use generated preset" nil)
+          (restricted-sexp
+           :tag "Exact command vector"
+           :value ["rass" "sveltetail"]
+           :match-alternatives (eglot-typescript-preset--rass-command-vector-p)))
+  :group 'eglot-typescript-preset)
+
+;;;###autoload
 (defcustom eglot-typescript-preset-vue-lsp-server 'rass
   "LSP server to use for Vue files."
   :type '(choice (const :tag "vue-language-server" vue-language-server)
@@ -183,6 +205,7 @@ older ones are deleted.  Shared presets are not affected."
      (const :tag "eslint" eslint)
      (const :tag "oxfmt" oxfmt)
      (const :tag "oxlint" oxlint)
+     (const :tag "svelte-language-server" svelte-language-server)
      (const :tag "tailwindcss-language-server" tailwindcss-language-server)
      (const :tag "typescript-language-server" typescript-language-server)
      (const :tag "vscode-css-language-server" vscode-css-language-server)
@@ -223,6 +246,15 @@ Same format as `eglot-typescript-preset-rass-tools'."
   :group 'eglot-typescript-preset)
 
 ;;;###autoload
+(defcustom eglot-typescript-preset-svelte-rass-tools
+  '(svelte-language-server typescript-language-server tailwindcss-language-server)
+  "Tools included in the generated `rass` preset for Svelte files.
+
+Same format as `eglot-typescript-preset-rass-tools'."
+  :type eglot-typescript-preset--rass-tools-type
+  :group 'eglot-typescript-preset)
+
+;;;###autoload
 (defcustom eglot-typescript-preset-vue-rass-tools
   '(vue-language-server typescript-language-server tailwindcss-language-server)
   "Tools included in the generated `rass` preset for Vue files.
@@ -235,7 +267,7 @@ Same format as `eglot-typescript-preset-rass-tools'."
 (defcustom eglot-typescript-preset-tsdk nil
   "Path to the TypeScript SDK `lib' directory.
 
-When non-nil, this is used as a fallback for the Astro and Vue
+When non-nil, this is used as a fallback for the Astro, Vue, and Svelte
 language servers' `typescript.tsdk' initialization option.
 A project-local `node_modules/typescript/lib' always takes
 priority.  When both are nil, the package falls back to
@@ -272,6 +304,12 @@ priority.  When both are nil, the package falls back to
   :group 'eglot-typescript-preset)
 
 ;;;###autoload
+(defcustom eglot-typescript-preset-svelte-modes '(svelte-mode svelte-ts-mode)
+  "Major modes for Svelte files."
+  :type '(repeat symbol)
+  :group 'eglot-typescript-preset)
+
+;;;###autoload
 (defcustom eglot-typescript-preset-vue-modes '(vue-mode vue-ts-mode)
   "Major modes for Vue files."
   :type '(repeat symbol)
@@ -298,6 +336,13 @@ priority.  When both are nil, the package falls back to
 (put 'eglot-typescript-preset-css-lsp-server 'safe-local-variable
      #'eglot-typescript-preset--css-lsp-server-safe-p)
 
+(defun eglot-typescript-preset--svelte-lsp-server-safe-p (value)
+  "Return non-nil if VALUE is safe for `eglot-typescript-preset-svelte-lsp-server'."
+  (memq value '(svelte-language-server rass nil)))
+
+(put 'eglot-typescript-preset-svelte-lsp-server 'safe-local-variable
+     #'eglot-typescript-preset--svelte-lsp-server-safe-p)
+
 (defun eglot-typescript-preset--vue-lsp-server-safe-p (value)
   "Return non-nil if VALUE is safe for `eglot-typescript-preset-vue-lsp-server'."
   (memq value '(vue-language-server rass nil)))
@@ -312,6 +357,7 @@ are excluded because they could execute arbitrary programs."
   (and (listp value)
        (seq-every-p (lambda (item)
                       (memq item '( astro-ls biome eslint oxfmt oxlint
+                                    svelte-language-server
                                     tailwindcss-language-server
                                     typescript-language-server
                                     vscode-css-language-server
@@ -328,6 +374,9 @@ are excluded because they could execute arbitrary programs."
      #'eglot-typescript-preset--rass-tools-safe-p)
 
 (put 'eglot-typescript-preset-vue-rass-tools 'safe-local-variable
+     #'eglot-typescript-preset--rass-tools-safe-p)
+
+(put 'eglot-typescript-preset-svelte-rass-tools 'safe-local-variable
      #'eglot-typescript-preset--rass-tools-safe-p)
 
 (defun eglot-typescript-preset--project-markers-safe-p (value)
@@ -387,6 +436,8 @@ As a last resort, try to find it via `npm root -g'."
         'eslint)
        ((string= base "oxfmt") 'oxfmt)
        ((string= base "oxlint") 'oxlint)
+       ((member base '("svelteserver" "svelte-language-server"))
+        'svelte-language-server)
        ((string= base "tailwindcss-language-server")
         'tailwindcss-language-server)
        ((member base '("typescript-language-server" "tsserver"))
@@ -415,6 +466,10 @@ As a last resort, try to find it via `npm root -g'."
    ((eq tool 'oxlint)
     (list (eglot-typescript-preset--resolve-executable "oxlint")
           "--lsp"))
+   ((eq tool 'svelte-language-server)
+    (list (eglot-typescript-preset--resolve-executable
+           "svelteserver")
+          "--stdio"))
    ((eq tool 'tailwindcss-language-server)
     (list (eglot-typescript-preset--resolve-executable
            "tailwindcss-language-server")
@@ -628,6 +683,12 @@ REPLACEMENTS is an alist mapping literal placeholder strings to values."
         `(:typescript (:tsdk ,tsdk) :vue (:hybridMode t))
       '(:vue (:hybridMode t)))))
 
+(defun eglot-typescript-preset--svelte-init-options ()
+  "Return initializationOptions for the Svelte language server."
+  (let ((tsdk (eglot-typescript-preset--find-tsdk)))
+    (when tsdk
+      `(:configuration (:typescript (:tsdk ,tsdk))))))
+
 (defun eglot-typescript-preset--find-vue-ts-plugin ()
   "Find the @vue/typescript-plugin directory.
 Walk up from the buffer's directory looking for node_modules that
@@ -704,9 +765,14 @@ Returns the preset path, or nil when RASS-COMMAND is set."
         (has-vue (seq-some (lambda (cmd)
                              (eq (eglot-typescript-preset--rass-tool-kind cmd)
                                  'vue-language-server))
-                           commands)))
+                           commands))
+        (has-svelte (seq-some (lambda (cmd)
+                                (eq (eglot-typescript-preset--rass-tool-kind cmd)
+                                    'svelte-language-server))
+                              commands)))
     (cond
      (has-astro (eglot-typescript-preset--astro-init-options))
+     (has-svelte (eglot-typescript-preset--svelte-init-options))
      (has-vue (eglot-typescript-preset--vue-init-options)))))
 
 (defun eglot-typescript-preset--rass-vue-ts-plugin-for-tools (commands)
@@ -863,6 +929,26 @@ the VC backend, which respects .gitignore."
            `(,@command :initializationOptions ,init-options)
          command)))))
 
+(defun eglot-typescript-preset--svelte-server-contact (_interactive)
+  "Return the server contact spec for Svelte LSP."
+  (pcase eglot-typescript-preset-svelte-lsp-server
+    ('rass
+     (if eglot-typescript-preset-svelte-rass-command
+         (append eglot-typescript-preset-svelte-rass-command nil)
+       (list (eglot-typescript-preset--resolve-executable
+              eglot-typescript-preset-rass-program)
+             (eglot-typescript-preset--rass-preset-path
+              eglot-typescript-preset-svelte-rass-tools
+              eglot-typescript-preset-svelte-rass-command))))
+    ('svelte-language-server
+     (let* ((init-options (eglot-typescript-preset--svelte-init-options))
+            (command (list (eglot-typescript-preset--resolve-executable
+                            "svelteserver")
+                           "--stdio")))
+       (if init-options
+           `(,@command :initializationOptions ,init-options)
+         command)))))
+
 (defun eglot-typescript-preset--workspace-configuration-plist-a
     (orig-fn server &optional path)
   "Advice to provide default workspace configuration.
@@ -876,6 +962,7 @@ the first match."
               ((with-current-buffer buf
                  (apply #'derived-mode-p
                         (append eglot-typescript-preset-astro-modes
+                                eglot-typescript-preset-svelte-modes
                                 eglot-typescript-preset-vue-modes)))))
         (append base-config '(:typescript (:validate (:enable t))))
       base-config)))
@@ -898,7 +985,7 @@ the first match."
 
 ;;;###autoload
 (defun eglot-typescript-preset-setup ()
-  "Set up Eglot to support TypeScript, JavaScript, CSS, Astro, and Vue modes.
+  "Set up Eglot for TypeScript, JavaScript, CSS, Astro, Svelte, and Vue modes.
 
 Adds hooks for project detection and Eglot configuration.
 Configures `eglot-server-programs' based on the preset settings.
@@ -915,6 +1002,10 @@ Call this after loading Eglot."
     (add-to-list 'eglot-server-programs
                  `(,eglot-typescript-preset-css-modes
                    . eglot-typescript-preset--css-server-contact)))
+  (when eglot-typescript-preset-svelte-lsp-server
+    (add-to-list 'eglot-server-programs
+                 `(,eglot-typescript-preset-svelte-modes
+                   . eglot-typescript-preset--svelte-server-contact)))
   (when eglot-typescript-preset-vue-lsp-server
     (add-to-list 'eglot-server-programs
                  `(,eglot-typescript-preset-vue-modes
