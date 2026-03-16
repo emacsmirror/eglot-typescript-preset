@@ -74,6 +74,14 @@ This runs:
 If you only need one part of that checklist, you can run the sub-commands
 directly.
 
+Run all MELPA checks plus the full test suite with:
+
+```sh
+bun run check:melpa:all
+```
+
+This runs `check:melpa` followed by `test:all` (unit + live tests).
+
 The local source of truth for the MELPA recipe is
 `eglot-typescript-preset.recipe` at the repository root. The local install check
 and Melpazoid workflow both read from that file.
