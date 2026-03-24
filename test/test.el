@@ -146,6 +146,7 @@ If TARGET-NAME is non-nil, rename the file."
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
              (src-dir (expand-file-name "src/" project-dir))
+             (major-mode 'jtsx-typescript-mode)
              (eglot-lsp-context t))
         (make-directory src-dir t)
         (with-temp-file (expand-file-name "package.json" project-dir)
@@ -162,6 +163,7 @@ If TARGET-NAME is non-nil, rename the file."
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
              (src-dir (expand-file-name "src/" project-dir))
+             (major-mode 'jtsx-typescript-mode)
              (eglot-lsp-context t))
         (make-directory src-dir t)
         (with-temp-file (expand-file-name "tsconfig.json" project-dir)
@@ -176,6 +178,7 @@ If TARGET-NAME is non-nil, rename the file."
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
              (src-dir (expand-file-name "src/" project-dir))
+             (major-mode 'jtsx-typescript-mode)
              (eglot-lsp-context t))
         (make-directory src-dir t)
         (with-temp-file (expand-file-name "jsconfig.json" project-dir)
@@ -189,6 +192,7 @@ If TARGET-NAME is non-nil, rename the file."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
       (let* ((project-dir (expand-file-name "noproject/" tmp-dir))
+             (major-mode 'jtsx-typescript-mode)
              (eglot-lsp-context t))
         (make-directory project-dir t)
         (should-not (eglot-typescript-preset--project-find project-dir))))))
@@ -222,6 +226,23 @@ If TARGET-NAME is non-nil, rename the file."
           (insert "{}"))
         (should-not (eglot-typescript-preset--project-find src-dir))))))
 
+(ert-deftest ts-preset--project-find-ignores-non-js-modes ()
+  "Return nil for non-JS major modes even when JS markers exist."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let* ((project-dir (expand-file-name "myproject/" tmp-dir))
+             (src-dir (expand-file-name "src/" project-dir))
+             (eglot-lsp-context t))
+        (make-directory src-dir t)
+        (with-temp-file (expand-file-name "package.json" project-dir)
+          (insert "{}"))
+        (with-temp-file (expand-file-name "pyproject.toml" project-dir)
+          (insert "[project]\nname = \"test\"\n"))
+        (let ((major-mode 'jtsx-typescript-mode))
+          (should (eglot-typescript-preset--project-find src-dir)))
+        (let ((major-mode 'python-mode))
+          (should-not (eglot-typescript-preset--project-find src-dir)))))))
+
 (ert-deftest ts-preset--monorepo-project-boundary ()
   "In a monorepo, project-find-file escapes the LSP project boundary.
 With eglot-lsp-context, --project-find scopes to the JS project.
@@ -246,7 +267,8 @@ the JS project boundary."
         (with-temp-file (expand-file-name "bundle.js" frontend-dist)
           (insert "compiled output\n"))
         ;; 1. With eglot-lsp-context, project-find scopes to frontend
-        (let ((eglot-lsp-context t))
+        (let ((eglot-lsp-context t)
+              (major-mode 'jtsx-typescript-mode))
           (let ((result (eglot-typescript-preset--project-find frontend-src)))
             (should result)
             (should (eq (car result) 'js-project))

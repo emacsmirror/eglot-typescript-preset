@@ -848,11 +848,18 @@ Returns the preset path, or nil when RASS-COMMAND is set."
   "Project detection for JavaScript and TypeScript files.
 
 Returns (js-project . ROOT) if DIR is inside a JS/TS project.
-Only activates when `eglot-lsp-context' is non-nil so that
-`project-find-file' and other project.el commands fall through to
-the VC backend, which respects .gitignore."
+Only activates when `eglot-lsp-context' is non-nil and the current
+buffer is in a JS/TS-related major mode, so that non-JS buffers
+(e.g. Python files in a polyglot project) fall through to other
+project backends."
   (when (and (bound-and-true-p eglot-lsp-context)
-             (not (eglot-typescript-preset--in-indirect-md-buffer-p)))
+             (not (eglot-typescript-preset--in-indirect-md-buffer-p))
+             (apply #'derived-mode-p
+                    (append eglot-typescript-preset-js-modes
+                            eglot-typescript-preset-astro-modes
+                            eglot-typescript-preset-css-modes
+                            eglot-typescript-preset-svelte-modes
+                            eglot-typescript-preset-vue-modes)))
     (when-let* ((root (locate-dominating-file
                        dir
                        #'eglot-typescript-preset--js-project-root-p)))
