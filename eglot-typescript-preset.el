@@ -53,10 +53,12 @@
 (require 'cl-lib)
 (require 'json)
 
+(declare-function eglot-client-capabilities "eglot")
 (declare-function eglot--managed-buffers "eglot")
 (declare-function eglot--workspace-configuration-plist "eglot")
 (declare-function eglot-current-server "eglot")
 (declare-function eglot-ensure "eglot")
+(declare-function eglot-handle-notification "eglot")
 (declare-function eglot-shutdown "eglot")
 
 (defvar eglot-server-programs)
@@ -850,8 +852,7 @@ Returns the preset path, or nil when RASS-COMMAND is set."
 Returns (js-project . ROOT) if DIR is inside a JS/TS project.
 Only activates when `eglot-lsp-context' is non-nil and the current
 buffer is in a JS/TS-related major mode, so that non-JS buffers
-(e.g. Python files in a polyglot project) fall through to other
-project backends."
+fall through to other project backends."
   (when (and (bound-and-true-p eglot-lsp-context)
              (not (eglot-typescript-preset--in-indirect-md-buffer-p))
              (apply #'derived-mode-p
@@ -990,6 +991,22 @@ the first match."
             "vscode-css-language-server")
            "--stdio"))))
 
+(defun eglot-typescript-preset--client-capabilities-a (orig-fn server)
+  "Advice to inject streaming diagnostics capability.
+Calls ORIG-FN with SERVER and adds :$streamingDiagnostics t to the
+:textDocument plist so that rass enables pull-to-push streaming."
+  (let ((caps (funcall orig-fn server)))
+    (let ((td (plist-get caps :textDocument)))
+      (when td
+        (plist-put td :$streamingDiagnostics t)))
+    caps))
+
+(cl-defmethod eglot-handle-notification
+  (server (_method (eql $/streamDiagnostics)) &rest params)
+  "Forward SERVER streaming diagnostics to publishDiagnostics with PARAMS."
+  (apply #'eglot-handle-notification server
+         'textDocument/publishDiagnostics params))
+
 ;;;###autoload
 (defun eglot-typescript-preset-setup ()
   "Set up Eglot for TypeScript, JavaScript, CSS, Astro, Svelte, and Vue modes.
@@ -1017,6 +1034,8 @@ Call this after loading Eglot."
     (add-to-list 'eglot-server-programs
                  `(,eglot-typescript-preset-vue-modes
                    . eglot-typescript-preset--vue-server-contact)))
+  (advice-add 'eglot-client-capabilities :around
+              #'eglot-typescript-preset--client-capabilities-a)
   (advice-add 'eglot--workspace-configuration-plist :around
               #'eglot-typescript-preset--workspace-configuration-plist-a)
   (add-hook 'project-find-functions

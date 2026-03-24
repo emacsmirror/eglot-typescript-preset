@@ -1285,6 +1285,21 @@ the JS project boundary."
                          '(:tsdk "/custom/path"))))))))
 
 
+;;; --- Streaming diagnostics ---
+
+(ert-deftest ts-preset--client-capabilities-injects-streaming ()
+  "Capabilities advice injects $streamingDiagnostics into textDocument."
+  (let* ((base-caps '(:textDocument (:publishDiagnostics (:relatedInformation t))
+                      :workspace (:configuration t)))
+         (result (eglot-typescript-preset--client-capabilities-a
+                  (lambda (_s) base-caps)
+                  'mock-server)))
+    (should (eq t (plist-get (plist-get result :textDocument)
+                             :$streamingDiagnostics)))
+    (should (plist-get (plist-get result :textDocument)
+                       :publishDiagnostics))))
+
+
 ;;; --- Widget type validation ---
 
 (ert-deftest ts-preset--rass-command-vector-p ()
