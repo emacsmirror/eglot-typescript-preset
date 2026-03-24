@@ -78,7 +78,14 @@ git clone https://github.com/mwolson/eglot-typescript-preset ~/devel/eglot-types
 
 For standard projects (those with `package.json`, `tsconfig.json`, or
 `jsconfig.json`), the package automatically detects the project root and starts
-Eglot with appropriate configuration.
+Eglot with appropriate configuration. This behaves as if the following were set:
+
+```elisp
+(add-to-list 'eglot-server-programs
+             '((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode
+                jtsx-jsx-mode jtsx-tsx-mode jtsx-typescript-mode)
+               "typescript-language-server" "--stdio"))
+```
 
 ### Deno Projects
 
@@ -89,7 +96,16 @@ Set the LSP server to `deno` for projects that use Deno instead of Node.js:
 ```
 
 This starts `deno lsp` with `enable` and `lint` enabled. Per-project
-configuration via `.dir-locals.el` is also supported (see below).
+configuration via `.dir-locals.el` is also supported (see below). This behaves
+as if the following were set:
+
+```elisp
+(add-to-list 'eglot-server-programs
+             '((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode
+                jtsx-jsx-mode jtsx-tsx-mode jtsx-typescript-mode)
+               "deno" "lsp"
+               :initializationOptions (:enable t :lint t)))
+```
 
 ### CSS Projects
 
@@ -97,13 +113,40 @@ When `eglot-typescript-preset-css-lsp-server` is set (default: `rass`), the
 package configures Eglot for `css-mode` and `css-ts-mode` buffers. The default
 `rass` backend combines `vscode-css-language-server` (for standard CSS language
 features) with `tailwindcss-language-server` (for Tailwind CSS diagnostics and
-completions).
+completions). This behaves as if the following were set:
+
+```elisp
+;; With rass backend (default), combining these tools:
+(setopt eglot-typescript-preset-css-lsp-server 'rass)
+(setopt eglot-typescript-preset-css-rass-tools
+        '(vscode-css-language-server tailwindcss-language-server))
+
+;; With standalone vscode-css-language-server:
+(add-to-list 'eglot-server-programs
+             '((css-mode css-ts-mode)
+               "vscode-css-language-server" "--stdio"))
+```
 
 ### Astro Projects
 
-When `eglot-typescript-preset-astro-lsp-server` is set (default: `astro-ls`),
-the package also configures Eglot for `astro-ts-mode` buffers, including
-automatic TypeScript SDK detection for the Astro language server.
+When `eglot-typescript-preset-astro-lsp-server` is set (default: `rass`), the
+package configures Eglot for `astro-ts-mode` buffers, including automatic
+TypeScript SDK detection for the Astro language server. This behaves as if the
+following were set:
+
+```elisp
+;; With rass backend (default), combining these tools:
+(setopt eglot-typescript-preset-astro-lsp-server 'rass)
+(setopt eglot-typescript-preset-astro-rass-tools
+        '(astro-ls eslint tailwindcss-language-server))
+
+;; With standalone astro-ls:
+(add-to-list 'eglot-server-programs
+             '(astro-ts-mode "astro-ls" "--stdio"
+               :initializationOptions
+               (:contentIntellisense t
+                :typescript (:tsdk "/path/to/typescript/lib"))))
+```
 
 ### Vue Projects
 
@@ -113,7 +156,24 @@ mode, `vue-language-server` handles Vue-specific features (template errors)
 while `typescript-language-server` with `@vue/typescript-plugin` provides
 TypeScript semantics (type checking, completions). The Vue language server
 receives TypeScript SDK path and `vue.hybridMode` initialization options
-automatically.
+automatically. With the default `rass` backend, this behaves as if the following
+were set:
+
+```elisp
+;; With rass backend (default), combining these tools:
+(setopt eglot-typescript-preset-vue-lsp-server 'rass)
+(setopt eglot-typescript-preset-vue-rass-tools
+        '(vue-language-server typescript-language-server
+          tailwindcss-language-server))
+
+;; With standalone vue-language-server:
+(add-to-list 'eglot-server-programs
+             '((vue-mode vue-ts-mode)
+               "vue-language-server" "--stdio"
+               :initializationOptions
+               (:typescript (:tsdk "/path/to/typescript/lib")
+                :vue (:hybridMode t))))
+```
 
 ### Svelte Projects
 
@@ -122,7 +182,24 @@ package configures Eglot for `svelte-mode` and `svelte-ts-mode` buffers. The
 `svelte-language-server` handles Svelte-specific features while
 `typescript-language-server` provides TypeScript semantics for standalone `.ts`
 files. The Svelte language server receives TypeScript SDK path initialization
-options automatically when available.
+options automatically when available. With the default `rass` backend, this
+behaves as if the following were set:
+
+```elisp
+;; With rass backend (default), combining these tools:
+(setopt eglot-typescript-preset-svelte-lsp-server 'rass)
+(setopt eglot-typescript-preset-svelte-rass-tools
+        '(svelte-language-server typescript-language-server
+          tailwindcss-language-server))
+
+;; With standalone svelte-language-server:
+(add-to-list 'eglot-server-programs
+             '((svelte-mode svelte-ts-mode)
+               "svelteserver" "--stdio"
+               :initializationOptions
+               (:configuration
+                (:typescript (:tsdk "/path/to/typescript/lib")))))
+```
 
 ## Configuration
 
@@ -155,9 +232,9 @@ Choose which language server to use for CSS:
 Choose which language server to use for Astro:
 
 ```elisp
-(setopt eglot-typescript-preset-astro-lsp-server 'astro-ls) ; default
+(setopt eglot-typescript-preset-astro-lsp-server 'rass) ; default
 ;; or
-(setopt eglot-typescript-preset-astro-lsp-server 'rass)
+(setopt eglot-typescript-preset-astro-lsp-server 'astro-ls)
 ;; or
 (setopt eglot-typescript-preset-astro-lsp-server nil) ; disable Astro support
 ```
@@ -234,7 +311,7 @@ Same as above, but for Astro files:
 
 ```elisp
 (setopt eglot-typescript-preset-astro-rass-tools
-        '(astro-ls eslint)) ; default
+        '(astro-ls eslint tailwindcss-language-server)) ; default
 ```
 
 ### `eglot-typescript-preset-vue-rass-tools`

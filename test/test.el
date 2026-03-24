@@ -96,14 +96,14 @@ If TARGET-NAME is non-nil, rename the file."
 (defun my-test--with-project-env (tmp-dir fn)
   "Call FN with eglot-typescript-preset variables scoped to TMP-DIR."
   (let ((eglot-typescript-preset-lsp-server 'typescript-language-server)
-        (eglot-typescript-preset-astro-lsp-server 'astro-ls)
+        (eglot-typescript-preset-astro-lsp-server 'rass)
         (eglot-typescript-preset-rass-program "rass")
         (eglot-typescript-preset-rass-command nil)
         (eglot-typescript-preset-astro-rass-command nil)
         (eglot-typescript-preset-rass-tools
          '( typescript-language-server eslint))
         (eglot-typescript-preset-astro-rass-tools
-         '( astro-ls eslint))
+         '( astro-ls eslint tailwindcss-language-server))
         (eglot-typescript-preset-css-lsp-server 'rass)
         (eglot-typescript-preset-css-rass-command nil)
         (eglot-typescript-preset-css-rass-tools
@@ -966,7 +966,8 @@ the JS project boundary."
   "Astro server contact returns astro-ls with init options."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
-      (let ((eglot-typescript-preset-tsdk "/fake/tsdk"))
+      (let ((eglot-typescript-preset-astro-lsp-server 'astro-ls)
+            (eglot-typescript-preset-tsdk "/fake/tsdk"))
         (let ((contact (eglot-typescript-preset--astro-server-contact nil)))
           (should (listp contact))
           (should (string-match-p "astro-ls" (car contact)))
@@ -976,8 +977,7 @@ the JS project boundary."
   "Astro server contact returns rass command when configured."
   (my-test-with-tmp-dir tmp-dir
     (my-test-with-project-env tmp-dir
-      (let ((eglot-typescript-preset-astro-lsp-server 'rass)
-            (eglot-typescript-preset-tsdk "/fake/tsdk"))
+      (let ((eglot-typescript-preset-tsdk "/fake/tsdk"))
         (let ((contact (eglot-typescript-preset--astro-server-contact nil)))
           (should (listp contact))
           (should (string-match-p "rass" (car contact))))))))
@@ -1579,119 +1579,6 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 	     result debugger-f
 	     '("eslint(no-debugger)") '("oxc"))))))))
 
-;; --- Astro + eslint ---
-
-(ert-deftest ts-preset--live-astro-eslint ()
-  "Live: astro-ls + eslint flags debugger in Astro frontmatter."
-  (skip-unless (my-test-live-tests-enabled-p))
-  (skip-unless (my-test--live-local-bins-available-p))
-  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-    (skip-unless (executable-find "rass"))
-    (skip-unless (executable-find "astro-ls"))
-    (skip-unless (executable-find "vscode-eslint-language-server"))
-    (my-test-with-tmp-dir tmp-dir
-      (my-test-with-project-env tmp-dir
-	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-	       (tools '(astro-ls eslint))
-	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
-	  (my-test--setup-fixture-dir "eslint" tmp-dir t)
-	  (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
-		 (result (my-test--run-rass-session
-			  path
-			  `((,debugger-f . "astro"))
-			  tmp-dir 30)))
-	    (my-test--assert-file-diagnostics
-	     result debugger-f '("no-debugger") '("eslint"))))))))
-
-;; --- Astro + oxlint ---
-
-(ert-deftest ts-preset--live-astro-oxlint ()
-  "Live: astro-ls + oxlint flags debugger in Astro frontmatter."
-  (skip-unless (my-test-live-tests-enabled-p))
-  (skip-unless (my-test--live-local-bins-available-p))
-  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-    (skip-unless (executable-find "rass"))
-    (skip-unless (executable-find "astro-ls"))
-    (skip-unless (executable-find "oxlint"))
-    (my-test-with-tmp-dir tmp-dir
-      (my-test-with-project-env tmp-dir
-	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-	       (tools '(astro-ls oxlint))
-	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
-	  (my-test--setup-fixture-dir "oxlint" tmp-dir)
-	  (let* ((debugger-f (expand-file-name "debugger.astro" tmp-dir))
-		 (result (my-test--run-rass-session
-			  path
-			  `((,debugger-f . "astro"))
-			  tmp-dir 30)))
-	    (my-test--assert-file-diagnostics
-	     result debugger-f
-	     '("eslint(no-debugger)") '("oxc"))))))))
-
-;; --- Astro + eslint + oxlint ---
-
-(ert-deftest ts-preset--live-astro-eslint-oxlint ()
-  "Live: astro-ls + eslint + oxlint on valid, type-error, and debugger."
-  (skip-unless (my-test-live-tests-enabled-p))
-  (skip-unless (my-test--live-local-bins-available-p))
-  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-    (skip-unless (executable-find "rass"))
-    (skip-unless (executable-find "astro-ls"))
-    (skip-unless (executable-find "vscode-eslint-language-server"))
-    (skip-unless (executable-find "oxlint"))
-    (my-test-with-tmp-dir tmp-dir
-      (my-test-with-project-env tmp-dir
-	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-	       (tools '(astro-ls eslint oxlint))
-	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
-	  (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
-	  (let* ((valid (expand-file-name "valid.astro" tmp-dir))
-		 (type-err (expand-file-name "type-error.astro" tmp-dir))
-		 (debugger-f (expand-file-name "debugger.astro" tmp-dir))
-		 (result (my-test--run-rass-session
-			  path
-			  `((,valid . "astro")
-			    (,type-err . "astro")
-			    (,debugger-f . "astro"))
-			  tmp-dir 30)))
-	    (my-test--assert-file-diagnostics result valid '())
-	    (my-test--assert-file-diagnostics
-	     result type-err '("2322" "6133") '("ts"))
-	    (my-test--assert-file-diagnostics
-	     result debugger-f
-	     '("eslint(no-debugger)") '("oxc"))))))))
-
-;; --- Tailwind CSS tests ---
-
-(ert-deftest ts-preset--live-tailwind ()
-  "Live: tailwindcss-language-server flags invalid directive and CSS conflict."
-  (skip-unless (my-test-live-tests-enabled-p))
-  (skip-unless (my-test--live-local-bins-available-p))
-  (let ((exec-path (cons my-test-local-bin-dir exec-path)))
-    (skip-unless (executable-find "rass"))
-    (skip-unless (executable-find "tailwindcss-language-server"))
-    (my-test-with-tmp-dir tmp-dir
-      (my-test-with-project-env tmp-dir
-	(let* ((eglot-typescript-preset-rass-tools
-		'(tailwindcss-language-server))
-	       (path (eglot-typescript-preset--rass-preset-path
-		      eglot-typescript-preset-rass-tools nil)))
-	  (my-test--setup-fixture-dir "tailwind" tmp-dir)
-	  (let* ((tw-dir (expand-file-name "tw-project" tmp-dir))
-		 (invalid (expand-file-name "tw-invalid-directive.css" tmp-dir))
-		 (conflict (expand-file-name "css-conflict.astro" tw-dir))
-		 (result (my-test--run-rass-session
-			  path
-			  `((,invalid . "css")
-			    (,conflict . "astro"))
-			  tmp-dir)))
-	    (my-test--assert-file-diagnostics
-	     result invalid
-	     '("invalidTailwindDirective") '("tailwindcss"))
-	    (my-test--assert-file-diagnostics
-	     result conflict
-	     '("cssConflict") '("tailwindcss"))))))))
-
 ;; --- TypeScript + tailwindcss ---
 
 (ert-deftest ts-preset--live-ts-tailwind ()
@@ -1806,28 +1693,34 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 ;; --- Vue + tailwindcss ---
 
 (ert-deftest ts-preset--live-vue-tailwind ()
-  "Live: vue-language-server + tailwindcss on valid and CSS conflict."
+  "Live: vue-language-server + typescript + tailwindcss on Vue and CSS diagnostics."
   (skip-unless (my-test-live-tests-enabled-p))
   (skip-unless (my-test--live-local-bins-available-p))
   (let ((exec-path (cons my-test-local-bin-dir exec-path)))
     (skip-unless (executable-find "rass"))
     (skip-unless (executable-find "vue-language-server"))
+    (skip-unless (executable-find "typescript-language-server"))
     (skip-unless (executable-find "tailwindcss-language-server"))
     (my-test-with-tmp-dir tmp-dir
       (my-test-with-project-env tmp-dir
 	(let* ((eglot-typescript-preset-tsdk my-test-local-tsdk)
-	       (tools '(vue-language-server tailwindcss-language-server))
+	       (tools '(vue-language-server typescript-language-server
+					    tailwindcss-language-server))
 	       (path (eglot-typescript-preset--rass-preset-path tools nil)))
 	  (my-test--setup-fixture-dir "vue-tailwind" tmp-dir)
 	  (let* ((valid (expand-file-name "valid.vue" tmp-dir))
+		 (type-err (expand-file-name "type-error.vue" tmp-dir))
 		 (tw-dir (expand-file-name "tw-project" tmp-dir))
 		 (conflict (expand-file-name "css-conflict.vue" tw-dir))
 		 (result (my-test--run-rass-session
 			  path
 			  `((,valid . "vue")
+			    (,type-err . "vue")
 			    (,conflict . "vue"))
 			  tmp-dir 30)))
 	    (my-test--assert-file-diagnostics result valid '())
+	    (my-test--assert-file-diagnostics
+	     result type-err '("2322" "6133") '("typescript"))
 	    (my-test--assert-file-diagnostics
 	     result conflict
 	     '("cssConflict") '("tailwindcss"))))))))

@@ -76,7 +76,7 @@
   :group 'eglot-typescript-preset)
 
 ;;;###autoload
-(defcustom eglot-typescript-preset-astro-lsp-server 'astro-ls
+(defcustom eglot-typescript-preset-astro-lsp-server 'rass
   "LSP server to use for Astro files."
   :type '(choice (const :tag "astro-ls" astro-ls)
                  (const :tag "rass" rass)
@@ -229,7 +229,7 @@ of strings."
 
 ;;;###autoload
 (defcustom eglot-typescript-preset-astro-rass-tools
-  '(astro-ls eslint)
+  '(astro-ls eslint tailwindcss-language-server)
   "Tools included in the generated `rass` preset for Astro files.
 
 Same format as `eglot-typescript-preset-rass-tools'."
