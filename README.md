@@ -409,6 +409,24 @@ Major modes for JavaScript and TypeScript files:
           js-mode js-ts-mode typescript-ts-mode tsx-ts-mode)) ; default
 ```
 
+### `eglot-typescript-preset-language-id-overrides`
+
+Alist mapping major modes to LSP language ID strings. During setup, the
+`eglot-language-id` property is set on each mode symbol so that Eglot sends the
+correct `languageId` to language servers. This is needed because some modes
+(like the `jtsx-*` family) have names that don't match standard LSP language
+IDs, causing servers like `vscode-eslint-language-server` to reject files:
+
+```elisp
+(setopt eglot-typescript-preset-language-id-overrides
+        '((js-mode . "javascript")
+          (js-ts-mode . "javascript")
+          (jtsx-jsx-mode . "javascriptreact")
+          (jtsx-tsx-mode . "typescriptreact")
+          (jtsx-typescript-mode . "typescript")
+          (tsx-ts-mode . "typescriptreact"))) ; default
+```
+
 ### `eglot-typescript-preset-css-modes`
 
 Major modes for CSS files:
@@ -491,6 +509,8 @@ prompting:
   `vscode-css-language-server`, `vue-language-server`).
 - `eglot-typescript-preset-js-project-markers` accepts lists of filename
   strings.
+- `eglot-typescript-preset-language-id-overrides` accepts alists of (symbol .
+  string) entries.
 
 #### Using `dir-locals-set-directory-class` (init file, no project changes)
 
@@ -537,3 +557,6 @@ project.
 - The Astro, Vue, and Svelte language servers require a TypeScript SDK path. The
   package first checks for a project-local `node_modules/typescript/lib`, then
   falls back to `eglot-typescript-preset-tsdk`, then `npm root -g`.
+- When using the `rass` backend, the package enables streaming diagnostics so
+  that LSP servers using pull diagnostics (like `vscode-eslint-language-server`)
+  work correctly with Eglot's push-based diagnostics model.

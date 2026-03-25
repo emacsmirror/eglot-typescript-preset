@@ -54,6 +54,7 @@
 (require 'json)
 
 (declare-function eglot-client-capabilities "eglot")
+(declare-function eglot--major-modes "eglot")
 (declare-function eglot--managed-buffers "eglot")
 (declare-function eglot--workspace-configuration-plist "eglot")
 (declare-function eglot-current-server "eglot")
@@ -294,6 +295,21 @@ priority.  When both are nil, the package falls back to
   :group 'eglot-typescript-preset)
 
 ;;;###autoload
+(defcustom eglot-typescript-preset-language-id-overrides
+  '((js-mode . "javascript")
+    (js-ts-mode . "javascript")
+    (jtsx-jsx-mode . "javascriptreact")
+    (jtsx-tsx-mode . "typescriptreact")
+    (jtsx-typescript-mode . "typescript")
+    (tsx-ts-mode . "typescriptreact"))
+  "Alist mapping major modes to LSP language ID strings.
+Each entry is (MODE . LANGUAGE-ID).  During setup, the `eglot-language-id'
+property is set on each MODE symbol so that Eglot sends the correct
+languageId to language servers."
+  :type '(alist :key-type symbol :value-type string)
+  :group 'eglot-typescript-preset)
+
+;;;###autoload
 (defcustom eglot-typescript-preset-astro-modes '(astro-ts-mode)
   "Major modes for Astro files."
   :type '(repeat symbol)
@@ -389,6 +405,18 @@ Checks `eglot-typescript-preset-js-project-markers'."
 
 (put 'eglot-typescript-preset-js-project-markers 'safe-local-variable
      #'eglot-typescript-preset--project-markers-safe-p)
+
+(defun eglot-typescript-preset--language-id-overrides-safe-p (value)
+  "Return non-nil if VALUE is safe for language ID overrides.
+Checks `eglot-typescript-preset-language-id-overrides'."
+  (and (listp value)
+       (seq-every-p (lambda (entry)
+                      (and (consp entry) (symbolp (car entry))
+                           (stringp (cdr entry))))
+                    value)))
+
+(put 'eglot-typescript-preset-language-id-overrides 'safe-local-variable
+     #'eglot-typescript-preset--language-id-overrides-safe-p)
 
 (defun eglot-typescript-preset--find-tsdk ()
   "Find the TypeScript SDK `lib' directory.
@@ -846,6 +874,14 @@ Returns the preset path, or nil when RASS-COMMAND is set."
 
 (defvar eglot-lsp-context)
 
+(defun eglot-typescript-preset--all-managed-modes ()
+  "Return a list of all major modes managed by this preset."
+  (append eglot-typescript-preset-js-modes
+          eglot-typescript-preset-astro-modes
+          eglot-typescript-preset-css-modes
+          eglot-typescript-preset-svelte-modes
+          eglot-typescript-preset-vue-modes))
+
 (defun eglot-typescript-preset--project-find (dir)
   "Project detection for JavaScript and TypeScript files.
 
@@ -856,11 +892,7 @@ fall through to other project backends."
   (when (and (bound-and-true-p eglot-lsp-context)
              (not (eglot-typescript-preset--in-indirect-md-buffer-p))
              (apply #'derived-mode-p
-                    (append eglot-typescript-preset-js-modes
-                            eglot-typescript-preset-astro-modes
-                            eglot-typescript-preset-css-modes
-                            eglot-typescript-preset-svelte-modes
-                            eglot-typescript-preset-vue-modes)))
+                    (eglot-typescript-preset--all-managed-modes)))
     (when-let* ((root (locate-dominating-file
                        dir
                        #'eglot-typescript-preset--js-project-root-p)))
@@ -991,21 +1023,46 @@ the first match."
             "vscode-css-language-server")
            "--stdio"))))
 
+(defun eglot-typescript-preset--our-server-p (server)
+  "Return non-nil if SERVER manages modes from this preset."
+  (let ((our-modes (eglot-typescript-preset--all-managed-modes)))
+    (cl-some (lambda (m) (memq m our-modes))
+             (eglot--major-modes server))))
+
+(defvar eglot-typescript-preset--streaming-diag-table (make-hash-table :test #'equal)
+  "Per-URI hash of streaming diagnostic tokens.
+Each key is a URI string.  Each value is a hash table mapping
+token strings to their latest diagnostics vector.")
+
 (defun eglot-typescript-preset--client-capabilities-a (orig-fn server)
   "Advice to inject streaming diagnostics capability.
 Calls ORIG-FN with SERVER and adds :$streamingDiagnostics t to the
-:textDocument plist so that rass enables pull-to-push streaming."
+:textDocument plist so that rass enables pull-to-push streaming.
+Only applies to servers managing modes from this preset."
   (let ((caps (funcall orig-fn server)))
-    (let ((td (plist-get caps :textDocument)))
-      (when td
-        (plist-put td :$streamingDiagnostics t)))
+    (when (eglot-typescript-preset--our-server-p server)
+      (clrhash eglot-typescript-preset--streaming-diag-table)
+      (let ((td (plist-get caps :textDocument)))
+        (when td
+          (plist-put td :$streamingDiagnostics t))))
     caps))
 
 (cl-defmethod eglot-handle-notification
-  (server (_method (eql $/streamDiagnostics)) &rest params)
-  "Forward SERVER streaming diagnostics to publishDiagnostics with PARAMS."
-  (apply #'eglot-handle-notification server
-         'textDocument/publishDiagnostics params))
+  (server (_method (eql $/streamDiagnostics)) &key uri token diagnostics
+          &allow-other-keys)
+  "Accumulate per-token diagnostics and publish the merged set.
+SERVER receives the merged diagnostics for URI.  Each TOKEN
+identifies a sub-server whose DIAGNOSTICS are stored separately,
+then all tokens for the URI are combined before forwarding to
+the standard publishDiagnostics handler."
+  (let ((by-token (or (gethash uri eglot-typescript-preset--streaming-diag-table)
+                      (puthash uri (make-hash-table :test #'equal)
+                               eglot-typescript-preset--streaming-diag-table))))
+    (puthash token (or diagnostics []) by-token)
+    (let ((merged []))
+      (maphash (lambda (_tok diags) (setq merged (vconcat merged diags))) by-token)
+      (eglot-handle-notification server 'textDocument/publishDiagnostics
+                                 :uri uri :diagnostics merged))))
 
 ;;;###autoload
 (defun eglot-typescript-preset-setup ()
@@ -1015,6 +1072,8 @@ Adds hooks for project detection and Eglot configuration.
 Configures `eglot-server-programs' based on the preset settings.
 Call this after loading Eglot."
   (interactive)
+  (dolist (entry eglot-typescript-preset-language-id-overrides)
+    (put (car entry) 'eglot-language-id (cdr entry)))
   (add-to-list 'eglot-server-programs
                `(,eglot-typescript-preset-js-modes
                  . eglot-typescript-preset--server-contact))

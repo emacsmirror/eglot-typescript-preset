@@ -1163,10 +1163,17 @@ the JS project boundary."
     (my-test-with-project-env tmp-dir
       (let ((eglot-server-programs nil)
             (project-find-functions nil))
-        (eglot-typescript-preset-setup)
-        (should (>= (length eglot-server-programs) 5))
-        (should (member #'eglot-typescript-preset--project-find
-                        project-find-functions))))))
+        (unwind-protect
+            (progn
+              (eglot-typescript-preset-setup)
+              (should (>= (length eglot-server-programs) 5))
+              (should (member #'eglot-typescript-preset--project-find
+                              project-find-functions))
+              (should (advice-member-p
+                       #'eglot-typescript-preset--client-capabilities-a
+                       'eglot-client-capabilities)))
+          (advice-remove 'eglot-client-capabilities
+                         #'eglot-typescript-preset--client-capabilities-a))))))
 
 (ert-deftest ts-preset--setup-skips-astro-when-disabled ()
   "Setup skips Astro when astro-lsp-server is nil."
@@ -1288,16 +1295,78 @@ the JS project boundary."
 ;;; --- Streaming diagnostics ---
 
 (ert-deftest ts-preset--client-capabilities-injects-streaming ()
-  "Capabilities advice injects $streamingDiagnostics into textDocument."
-  (let* ((base-caps '(:textDocument (:publishDiagnostics (:relatedInformation t))
-                      :workspace (:configuration t)))
-         (result (eglot-typescript-preset--client-capabilities-a
-                  (lambda (_s) base-caps)
-                  'mock-server)))
-    (should (eq t (plist-get (plist-get result :textDocument)
-                             :$streamingDiagnostics)))
-    (should (plist-get (plist-get result :textDocument)
-                       :publishDiagnostics))))
+  "Capabilities advice injects $streamingDiagnostics for our modes."
+  (let ((base-caps '(:textDocument (:publishDiagnostics (:relatedInformation t))
+                     :workspace (:configuration t))))
+    (cl-letf (((symbol-function 'eglot--major-modes)
+               (lambda (_s) '(typescript-ts-mode))))
+      (let ((result (eglot-typescript-preset--client-capabilities-a
+                     (lambda (_s) base-caps)
+                     'mock-server)))
+        (should (eq t (plist-get (plist-get result :textDocument)
+                                 :$streamingDiagnostics)))
+        (should (plist-get (plist-get result :textDocument)
+                           :publishDiagnostics))))))
+
+(ert-deftest ts-preset--client-capabilities-skips-non-preset-modes ()
+  "Capabilities advice does not inject $streamingDiagnostics for other modes."
+  (let ((base-caps '(:textDocument (:publishDiagnostics (:relatedInformation t))
+                     :workspace (:configuration t))))
+    (cl-letf (((symbol-function 'eglot--major-modes)
+               (lambda (_s) '(python-mode))))
+      (let ((result (eglot-typescript-preset--client-capabilities-a
+                     (lambda (_s) base-caps)
+                     'mock-server)))
+        (should-not (plist-get (plist-get result :textDocument)
+                               :$streamingDiagnostics))))))
+
+(defun my-test--streaming-merge (uri)
+  "Compute merged diagnostics vector for URI from the streaming table."
+  (let ((by-token (gethash uri eglot-typescript-preset--streaming-diag-table))
+        (merged []))
+    (when by-token
+      (maphash (lambda (_tok diags) (setq merged (vconcat merged diags))) by-token))
+    merged))
+
+(ert-deftest ts-preset--streaming-diags-accumulates-across-tokens ()
+  "Streaming handler merges diagnostics from different tokens."
+  (clrhash eglot-typescript-preset--streaming-diag-table)
+  (let ((uri "file:///test-accum.ts")
+        (diag1 [:message "err1"])
+        (diag2 [:message "err2"]))
+    (let ((by-token (puthash uri (make-hash-table :test #'equal)
+                             eglot-typescript-preset--streaming-diag-table)))
+      (puthash "server-a" (vector diag1) by-token)
+      (should (= 1 (length (my-test--streaming-merge uri))))
+      (puthash "server-b" (vector diag2) by-token)
+      (let ((merged (my-test--streaming-merge uri)))
+        (should (vectorp merged))
+        (should (= 2 (length merged)))))))
+
+(ert-deftest ts-preset--streaming-diags-replaces-same-token ()
+  "Same token replaces its diagnostics, not accumulates."
+  (clrhash eglot-typescript-preset--streaming-diag-table)
+  (let ((uri "file:///test-replace.ts")
+        (diag1 [:message "err1"]))
+    (let ((by-token (puthash uri (make-hash-table :test #'equal)
+                             eglot-typescript-preset--streaming-diag-table)))
+      (puthash "server-a" (vector diag1) by-token)
+      (should (= 1 (length (my-test--streaming-merge uri))))
+      (puthash "server-a" [] by-token)
+      (should (= 0 (length (my-test--streaming-merge uri)))))))
+
+(ert-deftest ts-preset--streaming-diags-cleared-on-connect ()
+  "Capabilities advice clears the streaming diagnostics table."
+  (clrhash eglot-typescript-preset--streaming-diag-table)
+  (puthash "file:///old.ts" (make-hash-table :test #'equal)
+           eglot-typescript-preset--streaming-diag-table)
+  (should (= 1 (hash-table-count eglot-typescript-preset--streaming-diag-table)))
+  (let ((base-caps '(:textDocument (:publishDiagnostics (:relatedInformation t)))))
+    (cl-letf (((symbol-function 'eglot--major-modes)
+               (lambda (_s) '(typescript-ts-mode))))
+      (eglot-typescript-preset--client-capabilities-a
+       (lambda (_s) base-caps) 'mock-server)))
+  (should (= 0 (hash-table-count eglot-typescript-preset--streaming-diag-table))))
 
 
 ;;; --- Widget type validation ---
@@ -1418,6 +1487,30 @@ the JS project boundary."
   (should-not (eglot-typescript-preset--project-markers-safe-p
                "package.json")))
 
+(ert-deftest ts-preset--language-id-overrides-safe-local-variable ()
+  (should (eglot-typescript-preset--language-id-overrides-safe-p
+           '((js-mode . "javascript") (jtsx-tsx-mode . "typescriptreact"))))
+  (should (eglot-typescript-preset--language-id-overrides-safe-p '()))
+  (should-not (eglot-typescript-preset--language-id-overrides-safe-p
+               '(("js-mode" . "javascript"))))
+  (should-not (eglot-typescript-preset--language-id-overrides-safe-p
+               '((js-mode . javascript))))
+  (should-not (eglot-typescript-preset--language-id-overrides-safe-p
+               "not-an-alist")))
+
+(ert-deftest ts-preset--setup-sets-language-ids ()
+  "Setup applies eglot-language-id properties from the overrides alist."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-typescript-preset-language-id-overrides
+             '((jtsx-typescript-mode . "typescript")
+               (js-mode . "javascript"))))
+        (eglot-typescript-preset-setup)
+        (should (equal "typescript"
+                       (get 'jtsx-typescript-mode 'eglot-language-id)))
+        (should (equal "javascript"
+                       (get 'js-mode 'eglot-language-id)))))))
+
 
 ;;; --- Live tests (opt-in) ---
 
@@ -1518,14 +1611,18 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 	  (my-test--setup-fixture-dir "eslint" tmp-dir t)
 	  (let* ((valid (expand-file-name "valid.ts" tmp-dir))
 		 (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+		 (type-err (expand-file-name "type-error.ts" tmp-dir))
 		 (result (my-test--run-rass-session
 			  path
 			  `((,valid . "typescript")
-			    (,debugger-f . "typescript"))
+			    (,debugger-f . "typescript")
+			    (,type-err . "typescript"))
 			  tmp-dir)))
 	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
-	     result debugger-f '("no-debugger") '("eslint"))))))))
+	     result debugger-f '("no-debugger") '("eslint"))
+	    (my-test--assert-file-diagnostics
+	     result type-err '("2322") '("ts"))))))))
 
 ;; --- TypeScript + biome ---
 
@@ -1573,13 +1670,16 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 	       (path (eglot-typescript-preset--rass-preset-path
 		      eglot-typescript-preset-rass-tools nil)))
 	  (my-test--setup-fixture-dir "oxlint" tmp-dir)
-	  (let* ((debugger-f (expand-file-name "debugger.ts" tmp-dir))
+	  (let* ((valid (expand-file-name "valid.ts" tmp-dir))
+		 (debugger-f (expand-file-name "debugger.ts" tmp-dir))
 		 (type-err (expand-file-name "type-error.ts" tmp-dir))
 		 (result (my-test--run-rass-session
 			  path
-			  `((,debugger-f . "typescript")
+			  `((,valid . "typescript")
+			    (,debugger-f . "typescript")
 			    (,type-err . "typescript"))
 			  tmp-dir)))
+	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
 	     result debugger-f '("eslint(no-debugger)") '("oxc"))
 	    (my-test--assert-file-diagnostics
@@ -1606,15 +1706,19 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 	  (my-test--setup-fixture-dir "eslint-oxlint" tmp-dir t)
 	  (let* ((valid (expand-file-name "valid.ts" tmp-dir))
 		 (debugger-f (expand-file-name "debugger.ts" tmp-dir))
+		 (type-err (expand-file-name "type-error.ts" tmp-dir))
 		 (result (my-test--run-rass-session
 			  path
 			  `((,valid . "typescript")
-			    (,debugger-f . "typescript"))
+			    (,debugger-f . "typescript")
+			    (,type-err . "typescript"))
 			  tmp-dir)))
 	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
 	     result debugger-f
-	     '("eslint(no-debugger)") '("oxc"))))))))
+	     '("eslint(no-debugger)") '("oxc"))
+	    (my-test--assert-file-diagnostics
+	     result type-err '("2322") '("ts"))))))))
 
 ;; --- TypeScript + tailwindcss ---
 
