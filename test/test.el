@@ -129,6 +129,7 @@ If TARGET-NAME is non-nil, rename the file."
         (eglot-typescript-preset-css-modes '(css-mode css-ts-mode))
         (eglot-typescript-preset-vue-modes '(vue-mode vue-ts-mode))
         (eglot-typescript-preset-svelte-modes '(svelte-mode svelte-ts-mode))
+        (eglot-typescript-preset--setup-done nil)
         (user-emacs-directory (file-name-as-directory tmp-dir)))
     (funcall fn)))
 
@@ -1215,6 +1216,33 @@ the JS project boundary."
         (eglot-typescript-preset-setup)
         (should (= (length eglot-server-programs) 4))))))
 
+(ert-deftest ts-preset--maybe-setup-runs-when-auto-setup-t ()
+  "Auto-setup calls setup when `eglot-typescript-preset-auto-setup' is t."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-server-programs nil)
+            (project-find-functions nil)
+            (eglot-typescript-preset-auto-setup t))
+        (unwind-protect
+            (progn
+              (eglot-typescript-preset--maybe-setup)
+              (should (>= (length eglot-server-programs) 5)))
+          (advice-remove 'eglot-client-capabilities
+                         #'eglot-typescript-preset--client-capabilities-a)
+          (advice-remove 'eglot--workspace-configuration-plist
+                         #'eglot-typescript-preset--workspace-configuration-plist-a))))))
+
+(ert-deftest ts-preset--maybe-setup-skips-when-auto-setup-nil ()
+  "Auto-setup skips setup when `eglot-typescript-preset-auto-setup' is nil."
+  (my-test-with-tmp-dir tmp-dir
+    (my-test-with-project-env tmp-dir
+      (let ((eglot-server-programs nil)
+            (project-find-functions nil)
+            (eglot-typescript-preset-auto-setup nil))
+        (eglot-typescript-preset--maybe-setup)
+        (should (null eglot-server-programs))
+        (should (null project-find-functions))))))
+
 
 ;;; --- Workspace configuration advice ---
 
@@ -1622,7 +1650,9 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 	    (my-test--assert-file-diagnostics
 	     result debugger-f '("no-debugger") '("eslint"))
 	    (my-test--assert-file-diagnostics
-	     result type-err '("2322") '("ts"))))))))
+	     result type-err
+	     '("2322" "@typescript-eslint/no-unused-vars")
+	     '("typescript" "eslint"))))))))
 
 ;; --- TypeScript + biome ---
 
@@ -1718,7 +1748,8 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 	     result debugger-f
 	     '("eslint(no-debugger)") '("oxc"))
 	    (my-test--assert-file-diagnostics
-	     result type-err '("2322") '("ts"))))))))
+	     result type-err
+	     '("2322" "eslint(no-unused-vars)") '("typescript" "oxc"))))))))
 
 ;; --- TypeScript + tailwindcss ---
 

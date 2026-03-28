@@ -40,10 +40,10 @@
 ;; - Optionally install eslint-language-server, biome, oxlint, or oxfmt
 ;; - Download this file and add it to the load path
 
-;; Quick start:
+;; Quick start (package-vc):
 ;;
-;;   (require 'eglot-typescript-preset)
-;;   (eglot-typescript-preset-setup)
+;;   (use-package eglot-typescript-preset
+;;     :vc (:url "https://github.com/mwolson/eglot-typescript-preset"))
 ;;
 ;; After that, opening TypeScript, JavaScript, CSS, Astro, Vue, or Svelte
 ;; files will automatically start the LSP server using Eglot.
@@ -69,6 +69,16 @@
   "TypeScript preset for Eglot."
   :group 'eglot
   :prefix "eglot-typescript-preset-")
+
+;;;###autoload
+(defcustom eglot-typescript-preset-auto-setup t
+  "Whether to automatically set up Eglot for TypeScript when eglot loads.
+When non-nil, `eglot-typescript-preset-setup' is called automatically
+via an autoloaded `with-eval-after-load' form.  Set to nil before the
+package is loaded to suppress automatic setup and call
+`eglot-typescript-preset-setup' manually instead."
+  :type 'boolean
+  :group 'eglot-typescript-preset)
 
 ;;;###autoload
 (defcustom eglot-typescript-preset-lsp-server 'typescript-language-server
@@ -1064,41 +1074,57 @@ the standard publishDiagnostics handler."
       (eglot-handle-notification server 'textDocument/publishDiagnostics
                                  :uri uri :diagnostics merged))))
 
+(defvar eglot-typescript-preset--setup-done nil
+  "Non-nil if `eglot-typescript-preset-setup' has already run.")
+
 ;;;###autoload
 (defun eglot-typescript-preset-setup ()
   "Set up Eglot for TypeScript, JavaScript, CSS, Astro, Svelte, and Vue modes.
 
 Adds hooks for project detection and Eglot configuration.
-Configures `eglot-server-programs' based on the preset settings.
-Call this after loading Eglot."
+Configures `eglot-server-programs' based on the preset settings."
   (interactive)
-  (dolist (entry eglot-typescript-preset-language-id-overrides)
-    (put (car entry) 'eglot-language-id (cdr entry)))
-  (add-to-list 'eglot-server-programs
-               `(,eglot-typescript-preset-js-modes
-                 . eglot-typescript-preset--server-contact))
-  (when eglot-typescript-preset-astro-lsp-server
+  (require 'eglot)
+  (unless eglot-typescript-preset--setup-done
+    (setq eglot-typescript-preset--setup-done t)
+    (dolist (entry eglot-typescript-preset-language-id-overrides)
+      (put (car entry) 'eglot-language-id (cdr entry)))
     (add-to-list 'eglot-server-programs
-                 `(,eglot-typescript-preset-astro-modes
-                   . eglot-typescript-preset--astro-server-contact)))
-  (when eglot-typescript-preset-css-lsp-server
-    (add-to-list 'eglot-server-programs
-                 `(,eglot-typescript-preset-css-modes
-                   . eglot-typescript-preset--css-server-contact)))
-  (when eglot-typescript-preset-svelte-lsp-server
-    (add-to-list 'eglot-server-programs
-                 `(,eglot-typescript-preset-svelte-modes
-                   . eglot-typescript-preset--svelte-server-contact)))
-  (when eglot-typescript-preset-vue-lsp-server
-    (add-to-list 'eglot-server-programs
-                 `(,eglot-typescript-preset-vue-modes
-                   . eglot-typescript-preset--vue-server-contact)))
-  (advice-add 'eglot-client-capabilities :around
-              #'eglot-typescript-preset--client-capabilities-a)
-  (advice-add 'eglot--workspace-configuration-plist :around
-              #'eglot-typescript-preset--workspace-configuration-plist-a)
-  (add-hook 'project-find-functions
-            #'eglot-typescript-preset--project-find))
+                 `(,eglot-typescript-preset-js-modes
+                   . eglot-typescript-preset--server-contact))
+    (when eglot-typescript-preset-astro-lsp-server
+      (add-to-list 'eglot-server-programs
+                   `(,eglot-typescript-preset-astro-modes
+                     . eglot-typescript-preset--astro-server-contact)))
+    (when eglot-typescript-preset-css-lsp-server
+      (add-to-list 'eglot-server-programs
+                   `(,eglot-typescript-preset-css-modes
+                     . eglot-typescript-preset--css-server-contact)))
+    (when eglot-typescript-preset-svelte-lsp-server
+      (add-to-list 'eglot-server-programs
+                   `(,eglot-typescript-preset-svelte-modes
+                     . eglot-typescript-preset--svelte-server-contact)))
+    (when eglot-typescript-preset-vue-lsp-server
+      (add-to-list 'eglot-server-programs
+                   `(,eglot-typescript-preset-vue-modes
+                     . eglot-typescript-preset--vue-server-contact)))
+    (advice-add 'eglot-client-capabilities :around
+                #'eglot-typescript-preset--client-capabilities-a)
+    (advice-add 'eglot--workspace-configuration-plist :around
+                #'eglot-typescript-preset--workspace-configuration-plist-a)
+    (add-hook 'project-find-functions
+              #'eglot-typescript-preset--project-find)))
+
+;;;###autoload
+(progn
+  (defun eglot-typescript-preset--maybe-setup ()
+    "Set up Eglot for TS/JS if auto-setup is enabled."
+    (when eglot-typescript-preset-auto-setup
+      (require 'eglot-typescript-preset nil t)
+      (eglot-typescript-preset-setup)))
+  (if after-init-time
+      (eglot-typescript-preset--maybe-setup)
+    (add-hook 'after-init-hook #'eglot-typescript-preset--maybe-setup t)))
 
 (provide 'eglot-typescript-preset)
 ;;; eglot-typescript-preset.el ends here

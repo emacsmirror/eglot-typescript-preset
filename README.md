@@ -47,15 +47,17 @@ Choose one of the following ways to install. After that, opening TypeScript,
 JavaScript, CSS, Astro, Vue, or Svelte files will automatically start the LSP
 server using Eglot.
 
-### From MELPA (recommended)
+### Using package-vc (recommended)
+
+For Emacs 30.2+, use the built-in `package-vc` via `use-package`:
 
 ```elisp
 (use-package eglot-typescript-preset
-  :ensure t
-  :after eglot
-  :config
-  (eglot-typescript-preset-setup))
+  :vc (:url "https://github.com/mwolson/eglot-typescript-preset"))
 ```
+
+The package sets up Eglot integration automatically when Eglot loads -- no
+explicit setup call is needed.
 
 ### Manual installation
 
@@ -69,7 +71,17 @@ git clone https://github.com/mwolson/eglot-typescript-preset ~/devel/eglot-types
 ```elisp
 (add-to-list 'load-path (expand-file-name "~/devel/eglot-typescript-preset"))
 (require 'eglot-typescript-preset)
-(eglot-typescript-preset-setup)
+```
+
+### From MELPA
+
+Note: The MELPA recipe does not yet include the `rass` preset templates. It's
+recommended to use `package-vc` as above until
+[melpa/melpa#9900](https://github.com/melpa/melpa/pull/9900) is merged.
+
+```elisp
+(use-package eglot-typescript-preset
+  :ensure t)
 ```
 
 ## Usage
@@ -202,6 +214,21 @@ behaves as if the following were set:
 ```
 
 ## Configuration
+
+### `eglot-typescript-preset-auto-setup`
+
+Controls whether Eglot integration is set up automatically when Eglot loads
+(default: `t`). Set to `nil` before the package loads to suppress automatic
+setup and call `eglot-typescript-preset-setup` manually instead:
+
+```elisp
+(use-package eglot-typescript-preset
+  :vc (:url "https://github.com/mwolson/eglot-typescript-preset")
+  :custom
+  (eglot-typescript-preset-auto-setup nil)
+  :config
+  (eglot-typescript-preset-setup))
+```
 
 ### `eglot-typescript-preset-lsp-server`
 
