@@ -1122,9 +1122,10 @@ Configures `eglot-server-programs' based on the preset settings."
     (when eglot-typescript-preset-auto-setup
       (require 'eglot-typescript-preset nil t)
       (eglot-typescript-preset-setup)))
-  (if after-init-time
+  (if (and after-init-time (not noninteractive))
       (eglot-typescript-preset--maybe-setup)
-    (add-hook 'after-init-hook #'eglot-typescript-preset--maybe-setup t)))
+    (unless noninteractive
+      (add-hook 'after-init-hook #'eglot-typescript-preset--maybe-setup t))))
 
 (provide 'eglot-typescript-preset)
 ;;; eglot-typescript-preset.el ends here
