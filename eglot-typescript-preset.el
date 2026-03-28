@@ -1117,14 +1117,17 @@ Configures `eglot-server-programs' based on the preset settings."
 
 ;;;###autoload
 (progn
+  (defvar eglot-typescript-preset--maybe-setup-in-progress nil)
   (defun eglot-typescript-preset--maybe-setup ()
     "Set up Eglot for TS/JS if auto-setup is enabled."
-    (when eglot-typescript-preset-auto-setup
-      (require 'eglot-typescript-preset nil t)
-      (eglot-typescript-preset-setup)))
-  (if (and after-init-time (not noninteractive))
-      (eglot-typescript-preset--maybe-setup)
-    (unless noninteractive
+    (unless eglot-typescript-preset--maybe-setup-in-progress
+      (let ((eglot-typescript-preset--maybe-setup-in-progress t))
+        (when eglot-typescript-preset-auto-setup
+          (require 'eglot-typescript-preset nil t)
+          (eglot-typescript-preset-setup)))))
+  (unless noninteractive
+    (if after-init-time
+        (eglot-typescript-preset--maybe-setup)
       (add-hook 'after-init-hook #'eglot-typescript-preset--maybe-setup t))))
 
 (provide 'eglot-typescript-preset)
