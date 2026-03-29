@@ -60,17 +60,32 @@ For Emacs 30.2+, use the built-in `package-vc` via `use-package`:
        :main-file "eglot-typescript-preset.el"))
 ```
 
-The package sets up Eglot integration automatically when Eglot loads -- no
+This will download and install the package automatically if it is not already
+installed. By default, `:vc` installs the latest release rather than the latest
+commit.
+
+To track the development version instead, use `:rev :newest`:
+
+```elisp
+(use-package eglot-typescript-preset
+  :vc (:url "https://github.com/mwolson/eglot-typescript-preset"
+       :main-file "eglot-typescript-preset.el"
+       :rev :newest))
+```
+
+The package sets up Eglot integration automatically when Eglot loads, so no
 explicit setup call is needed.
 
 ### Manual installation
 
-Clone this repository and add to your Emacs configuration:
+Clone this repository:
 
 ```bash
 mkdir -p ~/devel
 git clone https://github.com/mwolson/eglot-typescript-preset ~/devel/eglot-typescript-preset
 ```
+
+Then add it to your Emacs configuration:
 
 ```elisp
 (add-to-list 'load-path (expand-file-name "~/devel/eglot-typescript-preset"))
