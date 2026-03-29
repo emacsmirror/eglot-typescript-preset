@@ -56,7 +56,8 @@ For Emacs 30.2+, use the built-in `package-vc` via `use-package`:
 
 ```elisp
 (use-package eglot-typescript-preset
-  :vc (:url "https://github.com/mwolson/eglot-typescript-preset"))
+  :vc (:url "https://github.com/mwolson/eglot-typescript-preset"
+       :main-file "eglot-typescript-preset.el"))
 ```
 
 The package sets up Eglot integration automatically when Eglot loads -- no
@@ -226,7 +227,8 @@ setup and call `eglot-typescript-preset-setup` manually instead:
 
 ```elisp
 (use-package eglot-typescript-preset
-  :vc (:url "https://github.com/mwolson/eglot-typescript-preset")
+  :vc (:url "https://github.com/mwolson/eglot-typescript-preset"
+       :main-file "eglot-typescript-preset.el")
   :custom
   (eglot-typescript-preset-auto-setup nil)
   :config
