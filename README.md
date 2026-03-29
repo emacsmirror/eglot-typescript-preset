@@ -13,6 +13,9 @@ server frontend. It supports combining multiple tools -- ESLint, Biome, oxlint,
 and oxfmt -- through generated `rass` presets, and includes CSS, Astro, Vue, and
 Svelte support via their respective language servers.
 
+See also [eglot-python-preset](https://github.com/mwolson/eglot-python-preset)
+for Python support.
+
 ## Prerequisites
 
 - Emacs 30.2 or later
