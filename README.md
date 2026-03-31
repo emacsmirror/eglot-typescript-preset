@@ -1,5 +1,7 @@
 # eglot-typescript-preset
 
+[![MELPA](https://melpa.org/packages/eglot-typescript-preset-badge.svg)](https://melpa.org/#/eglot-typescript-preset)
+
 Configures TypeScript, JavaScript, CSS, Astro, Vue, and Svelte LSP support for
 Emacs using [Eglot](https://github.com/joaotavora/eglot), with optional linter
 and formatter integration via
