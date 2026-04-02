@@ -1708,7 +1708,7 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 			  `((,valid . "typescript")
 			    (,debugger-f . "typescript")
 			    (,type-err . "typescript"))
-			  tmp-dir)))
+			  tmp-dir 30 2 "--settle 3")))
 	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
 	     result debugger-f '("eslint(no-debugger)") '("oxc"))
