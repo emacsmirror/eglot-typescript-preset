@@ -53,7 +53,7 @@ jobs:
         run: bun run check
       - name: Test
         run: |
-          export LIVE_TEST_JOBS=$(nproc)
+          export LIVE_TEST_JOBS=$(( $(nproc) / 2 ))
           bun run test:all
       - name: Run Melpazoid
         run: |

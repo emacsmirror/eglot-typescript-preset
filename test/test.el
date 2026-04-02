@@ -1800,7 +1800,7 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 		 (result (my-test--run-rass-session
 			  path
 			  `((,invalid . "css"))
-			  tmp-dir)))
+			  tmp-dir 30 2 "--settle 3")))
 	    (my-test--assert-file-diagnostics
 	     result invalid
 	     '("invalidTailwindDirective") '("tailwindcss"))))))))
