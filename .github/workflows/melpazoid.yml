@@ -51,10 +51,17 @@ jobs:
         run: bun install
       - name: Check
         run: bun run check
-      - name: Test
+      - name: Unit tests
+        run: bun run test
+      - name: Live tests
         run: |
           export LIVE_TEST_JOBS=$(nproc)
-          bun run test:all
+          bun run test:live || {
+            echo "::group::Re-running live tests sequentially for diagnostics"
+            bun run test:live:sequential || true
+            echo "::endgroup::"
+            exit 1
+          }
       - name: Run Melpazoid
         run: |
           RECIPE="$(tr '\n' ' ' < eglot-typescript-preset.recipe)"
