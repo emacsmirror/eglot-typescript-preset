@@ -1742,7 +1742,7 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 			  `((,valid . "typescript")
 			    (,debugger-f . "typescript")
 			    (,type-err . "typescript"))
-			  tmp-dir)))
+			  tmp-dir 30 2 "--settle 3")))
 	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
 	     result debugger-f
@@ -1889,7 +1889,7 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 			  `((,valid . "vue")
 			    (,type-err . "vue")
 			    (,conflict . "vue"))
-			  tmp-dir 30)))
+			  tmp-dir 30 2 "--settle 3")))
 	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
 	     result type-err '("2322" "6133") '("typescript"))
@@ -1954,7 +1954,7 @@ When NEED-NODE-MODULES is non-nil, symlink node_modules."
 			  `((,valid . "svelte")
 			    (,conflict . "svelte")
 			    (,a11y-tw . "svelte"))
-			  tmp-dir 30)))
+			  tmp-dir 30 2 "--settle 3")))
 	    (my-test--assert-file-diagnostics result valid '())
 	    (my-test--assert-file-diagnostics
 	     result conflict
