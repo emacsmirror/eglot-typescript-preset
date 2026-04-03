@@ -30,21 +30,27 @@ for Python support.
     optional stdio multiplexer for combining multiple tools
 - Optional linters and formatters (used with `rass` backend):
   - [biome](https://biomejs.dev/) -- linter and formatter
-  - [eslint](https://eslint.org/) via `vscode-eslint-language-server`
+  - [eslint](https://eslint.org/) and its VSCode language server from
+    [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
+    or a fork like
+    [@zed-industries/vscode-langservers-extracted](https://www.npmjs.com/package/@zed-industries/vscode-langservers-extracted)
   - [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) -- fast formatter
   - [oxlint](https://oxc.rs/docs/guide/usage/linter.html) -- fast linter
-  - [tailwindcss-language-server](https://github.com/tailwindlabs/tailwindcss-intellisense)
+  - [@tailwindcss/language-server](https://github.com/tailwindlabs/tailwindcss-intellisense)
     -- Tailwind CSS support
-  - [vscode-css-language-server](https://github.com/ArkadyRudenko/vscode-css-languageserver-bin)
+  - VSCode's CSS language server from
+    [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
+    or a fork like
+    [@zed-industries/vscode-langservers-extracted](https://www.npmjs.com/package/@zed-industries/vscode-langservers-extracted)
     -- CSS language features
 - Optional for Astro:
-  - [@astrojs/language-server](https://github.com/withastro/language-tools)
+  - [@astrojs/language-server](https://www.npmjs.com/@astrojs/language-server)
     (provides the `astro-ls` command)
 - Optional for Svelte:
-  - [svelte-language-server](https://github.com/sveltejs/language-tools)
+  - [svelte-language-server](https://www.npmjs.com/svelte-language-server)
     (provides the `svelteserver` command)
 - Optional for Vue:
-  - [@vue/language-server](https://github.com/vuejs/language-tools) (provides
+  - [@vue/language-server](https://www.npmjs.com/@vue/language-server) (provides
     the `vue-language-server` command)
 
 ## Installation
@@ -103,6 +109,86 @@ Then add it to your Emacs configuration:
 ```elisp
 (use-package eglot-typescript-preset
   :ensure t)
+```
+
+## Installing Language Servers
+
+The language servers used by this package are installed separately. You can
+install them globally (so the commands are available on your PATH) or locally in
+each project (the package resolves project-local `node_modules/.bin`
+automatically). The examples below use `bun`; substitute `npm`, `pnpm`, or
+`yarn` as needed.
+
+### TypeScript/JavaScript
+
+```bash
+bun install -g typescript typescript-language-server
+```
+
+### CSS and ESLint
+
+The `vscode-css-language-server` and `vscode-eslint-language-server` commands
+are provided by the `vscode-langservers-extracted` package, which bundles
+several language servers extracted from VS Code:
+
+```bash
+bun install -g vscode-langservers-extracted
+```
+
+Alternatively, there are forks that track more recent VS Code releases:
+
+```bash
+bun install -g @zed-industries/vscode-langservers-extracted
+# or less widely used but more frequently updated as of Apr 2026:
+bun install -g @t1ckbase/vscode-langservers-extracted
+```
+
+### Tailwind CSS
+
+```bash
+bun install -g @tailwindcss/language-server
+```
+
+### Astro
+
+```bash
+bun install -g @astrojs/language-server
+```
+
+This provides the `astro-ls` command.
+
+### Vue
+
+```bash
+bun install -g @vue/language-server
+```
+
+This provides the `vue-language-server` command.
+
+### Svelte
+
+```bash
+bun install -g svelte-language-server
+```
+
+This provides the `svelteserver` command.
+
+### Biome
+
+```bash
+bun install -g @biomejs/biome
+```
+
+### oxfmt
+
+```bash
+bun install -g oxfmt
+```
+
+### oxlint
+
+```bash
+bun install -g oxlint
 ```
 
 ## Usage
