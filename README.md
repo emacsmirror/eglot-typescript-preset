@@ -36,13 +36,12 @@ for Python support.
     [@t1ckbase/vscode-langservers-extracted](https://www.npmjs.com/package/@t1ckbase/vscode-langservers-extracted)
   - [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) -- fast formatter
   - [oxlint](https://oxc.rs/docs/guide/usage/linter.html) -- fast linter
-  - [@tailwindcss/language-server](https://github.com/tailwindlabs/tailwindcss-intellisense)
+  - [@tailwindcss/language-server](https://www.npmjs.com/package/@tailwindcss/language-server)
     -- Tailwind CSS support
   - VSCode's CSS language server from
     [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
     or a less well-known but up-to-date (as of April 2026) fork like
     [@t1ckbase/vscode-langservers-extracted](https://www.npmjs.com/package/@t1ckbase/vscode-langservers-extracted)
-    -- CSS language features
 - Optional for Astro:
   - [@astrojs/language-server](https://www.npmjs.com/@astrojs/language-server)
     (provides the `astro-ls` command)
@@ -136,7 +135,7 @@ bun install -g vscode-langservers-extracted
 ```
 
 Alternatively, there is a fork that tracks more recent VS Code releases as of
-April 2026:
+April 2026 (pinned here to be exactly the version I tested):
 
 ```bash
 bun install -g @t1ckbase/vscode-langservers-extracted@1.0.2
