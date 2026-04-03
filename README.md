@@ -32,7 +32,7 @@ for Python support.
   - [biome](https://biomejs.dev/) -- linter and formatter
   - [eslint](https://eslint.org/) and its VSCode language server from
     [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
-    or a less well-known but up-to-date (as of Mar 2026) fork like
+    or a less well-known but up-to-date (as of April 2026) fork like
     [@t1ckbase/vscode-langservers-extracted](https://www.npmjs.com/package/@t1ckbase/vscode-langservers-extracted)
   - [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) -- fast formatter
   - [oxlint](https://oxc.rs/docs/guide/usage/linter.html) -- fast linter
@@ -40,7 +40,7 @@ for Python support.
     -- Tailwind CSS support
   - VSCode's CSS language server from
     [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
-    or a less well-known but up-to-date (as of Mar 2026) fork like
+    or a less well-known but up-to-date (as of April 2026) fork like
     [@t1ckbase/vscode-langservers-extracted](https://www.npmjs.com/package/@t1ckbase/vscode-langservers-extracted)
     -- CSS language features
 - Optional for Astro:
@@ -135,10 +135,11 @@ several language servers extracted from VS Code:
 bun install -g vscode-langservers-extracted
 ```
 
-Alternatively, there is a fork that tracks more recent VS Code releases:
+Alternatively, there is a fork that tracks more recent VS Code releases as of
+April 2026:
 
 ```bash
-bun install -g @t1ckbase/vscode-langservers-extracted
+bun install -g @t1ckbase/vscode-langservers-extracted@1.0.2
 ```
 
 ### Tailwind CSS
