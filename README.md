@@ -32,16 +32,16 @@ for Python support.
   - [biome](https://biomejs.dev/) -- linter and formatter
   - [eslint](https://eslint.org/) and its VSCode language server from
     [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
-    or a fork like
-    [@zed-industries/vscode-langservers-extracted](https://www.npmjs.com/package/@zed-industries/vscode-langservers-extracted)
+    or a less well-known but up-to-date (as of Mar 2026) fork like
+    [@t1ckbase/vscode-langservers-extracted](https://www.npmjs.com/package/@t1ckbase/vscode-langservers-extracted)
   - [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) -- fast formatter
   - [oxlint](https://oxc.rs/docs/guide/usage/linter.html) -- fast linter
   - [@tailwindcss/language-server](https://github.com/tailwindlabs/tailwindcss-intellisense)
     -- Tailwind CSS support
   - VSCode's CSS language server from
     [vscode-langservers-extracted](https://www.npmjs.com/package/vscode-langservers-extracted)
-    or a fork like
-    [@zed-industries/vscode-langservers-extracted](https://www.npmjs.com/package/@zed-industries/vscode-langservers-extracted)
+    or a less well-known but up-to-date (as of Mar 2026) fork like
+    [@t1ckbase/vscode-langservers-extracted](https://www.npmjs.com/package/@t1ckbase/vscode-langservers-extracted)
     -- CSS language features
 - Optional for Astro:
   - [@astrojs/language-server](https://www.npmjs.com/@astrojs/language-server)
@@ -135,11 +135,9 @@ several language servers extracted from VS Code:
 bun install -g vscode-langservers-extracted
 ```
 
-Alternatively, there are forks that track more recent VS Code releases:
+Alternatively, there is a fork that tracks more recent VS Code releases:
 
 ```bash
-bun install -g @zed-industries/vscode-langservers-extracted
-# or less widely used but more frequently updated as of Apr 2026:
 bun install -g @t1ckbase/vscode-langservers-extracted
 ```
 
