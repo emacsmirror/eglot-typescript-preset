@@ -19,6 +19,40 @@ Svelte support via their respective language servers.
 See also [eglot-python-preset](https://github.com/mwolson/eglot-python-preset)
 for Python support.
 
+## Why to use this library
+
+- You want TypeScript/JavaScript LSP support in Emacs that just works, without
+  spending time configuring it yourself.
+- You maintain an [Emacs starter kit](https://github.com/mwolson/emacs-shared)
+  and want reliable LSP defaults for your users.
+- You use monorepos, where project root detection matters; this is nontrivial to
+  get right for LSPs.
+- You work in (or browse) quite a few different projects, each needing a
+  slightly different tool setup, and you want easy per-project configuration via
+  `.dir-locals.el` or `dir-locals-set-directory-class`.
+- You want to combine multiple tools (ESLint, Biome, oxlint, oxfmt, Tailwind
+  CSS) through a single Eglot connection, without writing `rass` presets by
+  hand - it's especially neat to be able to combine ESLint and oxlint (with
+  `eslint-plugin-oxlint` enabled in your ESLint settings) so that oxlint can
+  gradually take over responsibilities from ESLint in your projects.
+- You want project-local `node_modules/.bin` executables to be found
+  automatically, with a fallback to globally installed tools.
+- You work with frameworks like Astro, Vue, or Svelte that each need TypeScript
+  SDK paths and framework-specific initialization options wired up correctly.
+- You use non-standard major modes (like the `jtsx-*` family) and want language
+  IDs mapped correctly so that servers like `vscode-eslint-language-server`
+  accept your files.
+- You'd rather have someone else find all the edge cases and fix them in
+  advance, with tests to prevent them from recurring.
+
+## Why not to use it
+
+- You use just one language server at a time and already know how to configure
+  each one for Eglot.
+- You have simple projects, or just one kind of setup across all your projects,
+  and you've already found something that works for you.
+- You prefer [lsp-mode](https://emacs-lsp.github.io/lsp-mode/) over Eglot.
+
 ## Prerequisites
 
 - Emacs 30.2 or later
