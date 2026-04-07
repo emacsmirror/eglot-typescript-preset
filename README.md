@@ -137,6 +137,13 @@ Then add it to your Emacs configuration:
 (require 'eglot-typescript-preset)
 ```
 
+or:
+
+```elisp
+(use-package eglot-typescript-preset
+  :load-path "/path/to/eglot-typescript-preset")
+```
+
 ### From MELPA
 
 ```elisp
