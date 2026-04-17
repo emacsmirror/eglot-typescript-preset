@@ -291,6 +291,10 @@ def main():
     if args.stderr:
         try:
             stderr_output = proc.stderr.read().decode("utf-8", errors="replace")
+            # Truncated to keep harness output readable. rass event logs can
+            # run long; if you need the full stream, spawn rass directly from
+            # a debug script that drains stderr in a thread (see AGENTS.md
+            # "Debugging live tests").
             result["stderr"] = stderr_output[:4000] if stderr_output else ""
         except Exception:
             result["stderr"] = ""

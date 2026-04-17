@@ -15,6 +15,12 @@ VUE_TS_PLUGIN: str | None = __VUE_TS_PLUGIN__  # type: ignore[name-defined]
 
 
 def _server_kind(name: str) -> str | None:
+    # rass rewrites server.name mid-session: it starts as the binary name
+    # (e.g. "vue-language-server") and is replaced with serverInfo.name from
+    # the LSP initialize response (e.g. "@vue/language-server") once init
+    # completes. The dual-name aliases below (vue-language-server +
+    # @vue/language-server, typescript-language-server + tsserver, etc.) are
+    # required so this function matches before and after that swap.
     base = name.lower().split("#", 1)[0]
     if "." in base:
         base = base.rsplit(".", 1)[0]
@@ -136,6 +142,14 @@ class GeneratedTypeScriptLogic(LspLogic):
     async def on_server_notification(
         self, method: str, params: JSON, source: Server
     ) -> None:
+        # vue-language-server v3 delegates TypeScript work back to the client
+        # via tsserver/request notifications. Wire format is double-wrapped:
+        # params = [[request_id, command, args]]. If nothing responds, the
+        # server blocks forever and emits no diagnostics. Replying with
+        # [[request_id, None]] makes it fall back to "simple project" mode,
+        # which still surfaces template compilation errors (code 28) but not
+        # TypeScript type errors. Returning before super() keeps the upstream
+        # handler from re-dispatching a notification we've already consumed.
         if (
             method == "tsserver/request"
             and _server_kind(source.name) == "vue-language-server"

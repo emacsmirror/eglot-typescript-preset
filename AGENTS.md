@@ -56,6 +56,19 @@ For debugging a single live test failure, use the sequential runner:
 bun run test:live:sequential
 ```
 
+#### Reading rass event logs
+
+`test/rass-live-client.py --stderr` surfaces rass's event log, but truncates to
+4000 chars to keep harness output readable. Event log conventions:
+
+- `[@server_name] <-- method` -- the named server sent a message upstream.
+- `<-- method` (no `[@...]` prefix) -- rass forwarded the message to the client
+  (Eglot).
+
+For the full (untruncated) stream, write a small debug script that spawns `rass`
+directly and drains `proc.stderr` on a background thread. The 4000-char cap in
+`rass-live-client.py` is deliberate, not a bug to fix.
+
 Good times to run `bun run test:live`:
 
 - After changing LSP startup or server-contact generation in
